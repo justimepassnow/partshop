@@ -1,6 +1,6 @@
 {
   "expo": {
-    "scheme":"partshop",
+    "scheme": "partshop",
     "name": "partshop",
     "slug": "partshop",
     "version": "1.0.0",
@@ -27,7 +27,8 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-sqlite"
     ]
   }
 }
