@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import {initDB} from '../lib/database';
-import { View ,ActivityIndicator} from "react-native";
+import { View ,ActivityIndicator, Text} from "react-native";
 import { Tabs } from "expo-router";
+import { Ionicons } from '@expo/vector-icons';
 
 export default function RootLayout(){
     const [isDBReady,setIsDBReady]=useState(false);
@@ -47,7 +48,26 @@ export default function RootLayout(){
     );
   }
   return(
-    <Tabs/>
+    <Tabs>
+      <Tabs.Screen
+        name="(tabs)/inventory" 
+        options={{
+          title: 'Inventory',
+          tabBarIcon: ({focused}) => (
+            <Ionicons name={focused ? 'cube':'cube-outline'} size={24} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="(tabs)/shoppingList" 
+        options={{
+          title: 'ShoppingList',
+          tabBarIcon: ({focused}) => (
+            <Ionicons name={focused ? 'cart':'cart-outline'} size={24} />
+          ),
+        }}
+      />
+    </Tabs>
   );
 
 }
