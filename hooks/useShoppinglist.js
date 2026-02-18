@@ -1,66 +1,80 @@
-
 import { db } from '../lib/database';
 
 export function useShoppingList() {
-
-  const addToShoppingList = (categoryId, name, targetQty = 1) => {
-    return new Promise((resolve, reject) => {
-      db.transaction(tx => {
-        tx.executeSql(
-          `INSERT INTO shopping_list
-           (target_category_id, name, target_quantity)
-           VALUES (?, ?, ?);`,
-          [categoryId, name, targetQty],
-          (_, result) => resolve(result),
-          (_, error) => reject(error)
-        );
-      });
-    });
+  const addToShoppingList = async (categoryId, name, targetQty = 1) => {
+    try {
+      const result = await db.runAsync(
+        `INSERT INTO shopping_list
+         (target_category_id, name, target_quantity)
+         VALUES (?, ?, ?);`,
+        [categoryId, name, targetQty]
+      );
+      return result;
+    } catch (error) {
+      console.error('Error adding to shopping list:', error);
+      throw error;
+    }
   };
 
-  const getShoppingList = () => {
-    return new Promise((resolve, reject) => {
-      db.transaction(tx => {
-        tx.executeSql(
-          `SELECT * FROM shopping_list ORDER BY is_purchased ASC;`,
-          [],
-          (_, result) => resolve(result.rows._array),
-          (_, error) => reject(error)
-        );
-      });
-    });
+  const getShoppingList = async () => {
+    try {
+      const allRows = await db.getAllAsync(
+        `SELECT sl.*, c.name as category_name 
+         FROM shopping_list sl 
+         LEFT JOIN categories c ON sl.target_category_id = c.id 
+         ORDER BY sl.is_purchased ASC;`
+      );
+      return allRows;
+    } catch (error) {
+      console.error('Error getting shopping list:', error);
+      throw error;
+    }
   };
 
-  const togglePurchased = (id, currentValue) => {
-    return new Promise((resolve, reject) => {
-      db.transaction(tx => {
-        tx.executeSql(
-          `UPDATE shopping_list SET is_purchased = ? WHERE id = ?;`,
-          [currentValue ? 0 : 1, id],
-          () => resolve(),
-          (_, error) => reject(error)
-        );
-      });
-    });
+  const togglePurchased = async (id, currentValue) => {
+    try {
+      await db.runAsync(
+        `UPDATE shopping_list SET is_purchased = ? WHERE id = ?;`,
+        [currentValue ? 0 : 1, id]
+      );
+    } catch (error) {
+      console.error('Error toggling purchased status:', error);
+      throw error;
+    }
   };
 
-  const deleteShoppingItem = (id) => {
-    return new Promise((resolve, reject) => {
-      db.transaction(tx => {
-        tx.executeSql(
-          `DELETE FROM shopping_list WHERE id = ?;`,
-          [id],
-          () => resolve(),
-          (_, error) => reject(error)
-        );
-      });
-    });
+  const deleteShoppingItem = async (id) => {
+    try {
+      await db.runAsync(
+        `DELETE FROM shopping_list WHERE id = ?;`,
+        [id]
+      );
+    } catch (error) {
+      console.error('Error deleting shopping item:', error);
+      throw error;
+    }
+  };
+
+  const purchaseShoppingItem = async (item) => {
+    try {
+      // 1. Add to items table
+      await db.runAsync(
+        `INSERT INTO items (category_id, name, quantity) VALUES (?, ?, ?);`,
+        [item.target_category_id || 1, item.name, item.target_quantity]
+      );
+      // 2. Remove from shopping list
+      await db.runAsync(`DELETE FROM shopping_list WHERE id = ?;`, [item.id]);
+    } catch (error) {
+      console.error('Error purchasing shopping item:', error);
+      throw error;
+    }
   };
 
   return {
     addToShoppingList,
     getShoppingList,
     togglePurchased,
-    deleteShoppingItem
+    deleteShoppingItem,
+    purchaseShoppingItem,
   };
 }

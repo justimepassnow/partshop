@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
-import {initDB} from '../lib/database';
-import { View ,ActivityIndicator, Text} from "react-native";
-import { Tabs } from "expo-router";
-import { Ionicons } from '@expo/vector-icons';
+import { initDB } from '../lib/database';
+import { View, ActivityIndicator, Text } from "react-native";
+import { Stack } from "expo-router";
+import { ThemeProvider } from '../lib/ThemeContext';
 
-export default function RootLayout(){
-    const [isDBReady,setIsDBReady]=useState(false);
-    const [error,setError]=useState(null);
-    useEffect(() => {
+export default function RootLayout() {
+  const [isDBReady, setIsDBReady] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
     const setupDatabase = async () => {
       try {
         await initDB();
@@ -20,20 +21,21 @@ export default function RootLayout(){
 
     setupDatabase();
   }, []);
-  if(!isDBReady && !error){
-    return(
-        <View
+
+  if (!isDBReady && !error) {
+    return (
+      <View
         style={{
           flex: 1,
           justifyContent: 'center',
           alignItems: 'center',
         }}
       >
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color="#0000ff" />
       </View>
     );
-    
   }
+
   if (error) {
     return (
       <View
@@ -43,31 +45,16 @@ export default function RootLayout(){
           alignItems: 'center',
         }}
       >
-        <Text>Database failed to initialize.</Text>
+        <Text>Database failed to initialize: {error.message}</Text>
       </View>
     );
   }
-  return(
-    <Tabs>
-      <Tabs.Screen
-        name="(tabs)/inventory" 
-        options={{
-          title: 'Inventory',
-          tabBarIcon: ({focused}) => (
-            <Ionicons name={focused ? 'cube':'cube-outline'} size={24} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="(tabs)/shoppingList" 
-        options={{
-          title: 'ShoppingList',
-          tabBarIcon: ({focused}) => (
-            <Ionicons name={focused ? 'cart':'cart-outline'} size={24} />
-          ),
-        }}
-      />
-    </Tabs>
-  );
 
+  return (
+    <ThemeProvider>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+      </Stack>
+    </ThemeProvider>
+  );
 }
