@@ -13,6 +13,7 @@ import {
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCategories } from '../../../hooks/useCategories';
 import { useTheme } from '../../../lib/ThemeContext';
+import { useToast } from '../../../lib/ToastContext';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function InventoryIndex() {
@@ -21,6 +22,7 @@ export default function InventoryIndex() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const { getCategories, addCategory, deleteCategory } = useCategories();
   const { theme } = useTheme();
+  const { showToast } = useToast();
   const router = useRouter();
 
   const fetchCategories = async () => {
@@ -48,6 +50,7 @@ export default function InventoryIndex() {
       setNewCategoryName('');
       setModalVisible(false);
       fetchCategories();
+      showToast('Category added successfully', 'success');
     } catch (error) {
       Alert.alert('Error', 'Could not add category');
     }
@@ -70,6 +73,7 @@ export default function InventoryIndex() {
           onPress: async () => {
             await deleteCategory(id);
             fetchCategories();
+            showToast(`Deleted "${name}"`, 'info');
           },
         },
       ]
@@ -98,9 +102,9 @@ export default function InventoryIndex() {
         data={categories}
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
-        ListEmptyComponent={
+        ListEmptyComponent={() => (
           <Text style={[styles.emptyText, { color: theme.text }]}>No categories found.</Text>
-        }
+        )}
       />
 
       <TouchableOpacity

@@ -3,6 +3,7 @@ import { initDB } from '../lib/database';
 import { View, ActivityIndicator, Text } from "react-native";
 import { Stack } from "expo-router";
 import { ThemeProvider } from '../lib/ThemeContext';
+import { ToastProvider } from '../lib/ToastContext';
 
 export default function RootLayout() {
   const [isDBReady, setIsDBReady] = useState(false);
@@ -52,9 +53,11 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-      </Stack>
+      <ToastProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+        </Stack>
+      </ToastProvider>
     </ThemeProvider>
   );
 }

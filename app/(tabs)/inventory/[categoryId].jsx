@@ -14,6 +14,7 @@ import {
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useItems } from '../../../hooks/useItems';
 import { useTheme } from '../../../lib/ThemeContext';
+import { useToast } from '../../../lib/ToastContext';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -33,6 +34,7 @@ export default function CategoryItems() {
 
   const { getItemsByCategory, addItem, updateItem, deleteItem, searchItems } = useItems();
   const { theme } = useTheme();
+  const { showToast } = useToast();
 
   const fetchItems = async () => {
     try {
@@ -77,6 +79,7 @@ export default function CategoryItems() {
           to: newUri,
         });
         setDatasheetUri(newUri);
+        showToast('Datasheet attached', 'info');
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to pick document');
@@ -110,8 +113,10 @@ export default function CategoryItems() {
       const qty = parseInt(quantity) || 0;
       if (editingItem) {
         await updateItem(editingItem.id, name.trim(), qty, datasheetUri);
+        showToast('Item updated', 'success');
       } else {
         await addItem(parseInt(categoryId), name.trim(), qty, datasheetUri);
+        showToast('Item added', 'success');
       }
       resetForm();
       fetchItems();
@@ -129,6 +134,7 @@ export default function CategoryItems() {
         onPress: async () => {
           await deleteItem(id);
           fetchItems();
+          showToast('Item deleted', 'info');
         },
       },
     ]);
@@ -195,9 +201,9 @@ export default function CategoryItems() {
         data={items}
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
-        ListEmptyComponent={
+        ListEmptyComponent={() => (
           <Text style={[styles.emptyText, { color: theme.text }]}>No items in this category.</Text>
-        }
+        )}
       />
 
       <TouchableOpacity

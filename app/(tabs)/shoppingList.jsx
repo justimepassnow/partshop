@@ -14,6 +14,7 @@ import { useFocusEffect } from 'expo-router';
 import { useShoppingList } from '../../hooks/useShoppinglist';
 import { useCategories } from '../../hooks/useCategories';
 import { useTheme } from '../../lib/ThemeContext';
+import { useToast } from '../../lib/ToastContext';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function ShoppingList() {
@@ -29,10 +30,12 @@ export default function ShoppingList() {
     addToShoppingList, 
     togglePurchased, 
     deleteShoppingItem, 
-    purchaseShoppingItem 
+    purchaseShoppingItem,
+    purchaseShoppingItemById
   } = useShoppingList();
   const { getCategories } = useCategories();
   const { theme } = useTheme();
+  const { showToast } = useToast();
 
   const fetchData = async () => {
     try {
@@ -62,26 +65,27 @@ export default function ShoppingList() {
       await addToShoppingList(parseInt(selectedCategoryId), name.trim(), parseInt(targetQty) || 1);
       resetForm();
       fetchData();
+      showToast('Added to shopping list', 'success');
     } catch (error) {
       Alert.alert('Error', 'Could not add to list');
     }
   };
 
-  const handlePurchase = (item) => {
-    Alert.alert(
-      'Mark as Purchased?',
-      `Confirming will move "${item.name}" (Qty: ${item.target_quantity}) to your Inventory in category "${item.category_name || 'Uncategorized'}" and remove it from this list.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Confirm', 
-          onPress: async () => {
-            await purchaseShoppingItem(item);
-            fetchData();
-          } 
-        },
-      ]
-    );
+  const handleTogglePurchase = async (item) => {
+    try {
+      // Automatically move to inventory when checked
+      await purchaseShoppingItemById(item.id);
+      fetchData();
+      showToast(`${item.name} moved to inventory`, 'success');
+    } catch (error) {
+      Alert.alert('Error', 'Could not process purchase');
+    }
+  };
+
+  const handleDelete = async (id) => {
+      await deleteShoppingItem(id);
+      fetchData();
+      showToast('Item removed', 'info');
   };
 
   const resetForm = () => {
@@ -96,7 +100,7 @@ export default function ShoppingList() {
       <View style={styles.cardInfo}>
         <Text style={[
           styles.itemName, 
-          { color: theme.text, textDecorationLine: item.is_purchased ? 'line-through' : 'none' }
+          { color: theme.text }
         ]}>
           {item.name}
         </Text>
@@ -106,27 +110,18 @@ export default function ShoppingList() {
       </View>
       <View style={styles.cardActions}>
         <TouchableOpacity 
-          onPress={() => togglePurchased(item.id, item.is_purchased)} 
+          onPress={() => handleTogglePurchase(item)} 
           style={styles.iconButton}
         >
           <Ionicons 
-            name={item.is_purchased ? "checkbox" : "checkbox-outline"} 
+            name="checkbox-outline" 
             size={24} 
-            color={item.is_purchased ? theme.primary : theme.text} 
+            color={theme.text} 
           />
         </TouchableOpacity>
-        
-        {item.is_purchased && (
-          <TouchableOpacity 
-            onPress={() => handlePurchase(item)} 
-            style={[styles.actionBtn, {backgroundColor: theme.primary}]}
-          >
-            <Ionicons name="archive-outline" size={18} color="#FFF" />
-          </TouchableOpacity>
-        )}
 
         <TouchableOpacity 
-          onPress={() => deleteShoppingItem(item.id)} 
+          onPress={() => handleDelete(item.id)} 
           style={styles.iconButton}
         >
           <Ionicons name="trash-outline" size={24} color={theme.danger} />
@@ -141,9 +136,9 @@ export default function ShoppingList() {
         data={list}
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
-        ListEmptyComponent={
+        ListEmptyComponent={() => (
           <Text style={[styles.emptyText, { color: theme.text }]}>Your shopping list is empty.</Text>
-        }
+        )}
       />
 
       <TouchableOpacity

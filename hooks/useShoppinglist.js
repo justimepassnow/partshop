@@ -70,11 +70,25 @@ export function useShoppingList() {
     }
   };
 
+  const purchaseShoppingItemById = async (id) => {
+    try {
+      // Get the item details first
+      const item = await db.getFirstAsync(`SELECT * FROM shopping_list WHERE id = ?;`, [id]);
+      if (item) {
+        await purchaseShoppingItem(item);
+      }
+    } catch (error) {
+      console.error('Error purchasing shopping item by id:', error);
+      throw error;
+    }
+  };
+
   return {
     addToShoppingList,
     getShoppingList,
     togglePurchased,
     deleteShoppingItem,
     purchaseShoppingItem,
+    purchaseShoppingItemById,
   };
 }

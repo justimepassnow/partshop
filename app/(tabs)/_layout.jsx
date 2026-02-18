@@ -1,9 +1,24 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../lib/ThemeContext';
 
 export default function TabsLayout() {
+  const { theme } = useTheme();
+
   return (
-    <Tabs screenOptions={{ headerShown: false }}>
+    <Tabs screenOptions={{ 
+      headerShown: false,
+      tabBarStyle: {
+        backgroundColor: theme.background,
+        borderTopColor: theme.border,
+      },
+      headerStyle: {
+        backgroundColor: theme.background,
+      },
+      headerTintColor: theme.text,
+      tabBarActiveTintColor: theme.primary,
+      tabBarInactiveTintColor: theme.border,
+    }}>
       <Tabs.Screen
         name="inventory"
         options={{
