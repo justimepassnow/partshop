@@ -46,7 +46,9 @@ export default function InventoryIndex() {
       return;
     }
     try {
-      await addCategory(newCategoryName.trim());
+      const name = newCategoryName.trim();
+      const capitalized = name.charAt(0).toUpperCase() + name.slice(1);
+      await addCategory(capitalized);
       setNewCategoryName('');
       setModalVisible(false);
       fetchCategories();

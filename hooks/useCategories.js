@@ -16,7 +16,9 @@ export function useCategories() {
 
   const getCategories = async () => {
     try {
-      const allRows = await db.getAllAsync(`SELECT * FROM categories ORDER BY name ASC;`);
+      const allRows = await db.getAllAsync(
+        `SELECT * FROM categories ORDER BY (id = 1) ASC, name ASC;`
+      );
       return allRows;
     } catch (error) {
       console.error('Error getting categories:', error);
@@ -40,11 +42,22 @@ export function useCategories() {
         `DELETE FROM categories WHERE id = ? AND id != 1;`,
         [id]
       );
-    } catch (error) {
-      console.error('Error deleting category:', error);
-      throw error;
+        } catch (error) {
+          console.error('Error deleting category:', error);
+          throw error;
+        }
+      };
+    
+      const getCategoryById = async (id) => {
+        try {
+          const category = await db.getFirstAsync(`SELECT * FROM categories WHERE id = ?;`, [id]);
+          return category;
+        } catch (error) {
+          console.error('Error getting category by id:', error);
+          throw error;
+        }
+      };
+    
+      return { addCategory, getCategories, deleteCategory, getCategoryById };
     }
-  };
-
-  return { addCategory, getCategories, deleteCategory };
-}
+    

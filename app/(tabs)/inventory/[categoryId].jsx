@@ -11,8 +11,9 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { useLocalSearchParams, useNavigation } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useItems } from '../../../hooks/useItems';
+import { useCategories } from '../../../hooks/useCategories';
 import { useTheme } from '../../../lib/ThemeContext';
 import { useToast } from '../../../lib/ToastContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,16 +26,43 @@ export default function CategoryItems() {
   const { categoryId } = useLocalSearchParams();
   const navigation = useNavigation();
   const [items, setItems] = useState([]);
+  const [category, setCategory] = useState(null);
+  const [allCategories, setAllCategories] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
+  const [moveModalVisible, setMoveModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [itemToMove, setItemToMove] = useState(null);
+  const [targetCategoryId, setTargetCategoryId] = useState(null);
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('0');
   const [datasheetUri, setDatasheetUri] = useState(null);
 
   const { getItemsByCategory, addItem, updateItem, deleteItem, searchItems } = useItems();
+  const { getCategoryById, getCategories } = useCategories();
   const { theme } = useTheme();
   const { showToast } = useToast();
+
+  const fetchCategory = async () => {
+    try {
+      const data = await getCategoryById(parseInt(categoryId));
+      setCategory(data);
+      if (data) {
+        navigation.setOptions({ title: data.name });
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const fetchAllCategories = async () => {
+    try {
+      const data = await getCategories();
+      setAllCategories(data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const fetchItems = async () => {
     try {
@@ -53,7 +81,9 @@ export default function CategoryItems() {
   };
 
   useEffect(() => {
+    fetchCategory();
     fetchItems();
+    fetchAllCategories();
   }, [categoryId, searchQuery]);
 
   const handlePickDocument = async () => {
@@ -125,6 +155,20 @@ export default function CategoryItems() {
     }
   };
 
+  const handleMoveItem = async () => {
+    if (!targetCategoryId || !itemToMove) return;
+    try {
+      await updateItem(itemToMove.id, itemToMove.name, itemToMove.quantity, itemToMove.datasheet_uri, targetCategoryId);
+      setMoveModalVisible(false);
+      setItemToMove(null);
+      setTargetCategoryId(null);
+      fetchItems();
+      showToast('Item moved successfully', 'success');
+    } catch (error) {
+      Alert.alert('Error', 'Could not move item');
+    }
+  };
+
   const handleDeleteItem = (id, itemName) => {
     Alert.alert('Delete Item', `Delete "${itemName}"?`, [
       { text: 'Cancel', style: 'cancel' },
@@ -156,11 +200,20 @@ export default function CategoryItems() {
     setModalVisible(true);
   };
 
+  const openMoveModal = (item) => {
+    setItemToMove(item);
+    setTargetCategoryId(null);
+    setMoveModalVisible(true);
+  };
+
   const renderItem = ({ item }) => (
     <View style={[styles.itemCard, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
       <View style={styles.itemHeader}>
         <Text style={[styles.itemName, { color: theme.text }]}>{item.name}</Text>
         <View style={styles.itemActions}>
+          <TouchableOpacity onPress={() => openMoveModal(item)} style={styles.iconButton}>
+            <Ionicons name="arrow-forward-outline" size={20} color={theme.primary} />
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => openEditModal(item)} style={styles.iconButton}>
             <Ionicons name="pencil-outline" size={20} color={theme.primary} />
           </TouchableOpacity>
@@ -213,6 +266,7 @@ export default function CategoryItems() {
         <Ionicons name="add" size={30} color="#FFF" />
       </TouchableOpacity>
 
+      {/* Add/Edit Modal */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -256,6 +310,54 @@ export default function CategoryItems() {
             <View style={styles.modalButtons}>
               <Button title="Cancel" onPress={resetForm} color={theme.danger} />
               <Button title="Save" onPress={handleSaveItem} color={theme.primary} />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Move Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={moveModalVisible}
+        onRequestClose={() => setMoveModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Move to Category</Text>
+            <FlatList
+              data={allCategories.filter(c => c.id !== parseInt(categoryId))}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.categoryOption,
+                    { borderColor: theme.border, backgroundColor: targetCategoryId === item.id ? theme.primary : 'transparent' }
+                  ]}
+                  onPress={() => setTargetCategoryId(item.id)}
+                >
+                  <Text style={{ color: targetCategoryId === item.id ? '#FFF' : theme.text }}>{item.name}</Text>
+                </TouchableOpacity>
+              )}
+              style={{ maxHeight: 300, marginBottom: 20 }}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.customButton, { backgroundColor: theme.danger }]} 
+                onPress={() => setMoveModalVisible(false)}
+              >
+                <Text style={styles.buttonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[
+                  styles.customButton, 
+                  { backgroundColor: targetCategoryId ? theme.primary : '#ccc' }
+                ]} 
+                onPress={handleMoveItem}
+                disabled={!targetCategoryId}
+              >
+                <Text style={styles.buttonText}>Move</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -335,4 +437,23 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
   },
   modalButtons: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 10 },
+  categoryOption: {
+    padding: 12,
+    borderWidth: 1,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  customButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    minWidth: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 16,
+  },
 });

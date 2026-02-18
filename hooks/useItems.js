@@ -28,12 +28,19 @@ export function useItems() {
     }
   };
 
-  const updateItem = async (id, name, quantity, datasheetUri = null) => {
+  const updateItem = async (id, name, quantity, datasheetUri = null, categoryId = null) => {
     try {
-      await db.runAsync(
-        `UPDATE items SET name = ?, quantity = ?, datasheet_uri = ? WHERE id = ?;`,
-        [name, quantity, datasheetUri, id]
-      );
+      if (categoryId) {
+        await db.runAsync(
+          `UPDATE items SET name = ?, quantity = ?, datasheet_uri = ?, category_id = ? WHERE id = ?;`,
+          [name, quantity, datasheetUri, categoryId, id]
+        );
+      } else {
+        await db.runAsync(
+          `UPDATE items SET name = ?, quantity = ?, datasheet_uri = ? WHERE id = ?;`,
+          [name, quantity, datasheetUri, id]
+        );
+      }
     } catch (error) {
       console.error('Error updating item:', error);
       throw error;
