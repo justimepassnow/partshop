@@ -39,3 +39,9 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Project planning and documentation
+project-step.md
+project_idea_prd.txt
+CODE_EXPLANATION.md
+DOCUMENTATION.md
