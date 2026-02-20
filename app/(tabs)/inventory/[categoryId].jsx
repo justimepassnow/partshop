@@ -10,6 +10,7 @@ import {
   Button,
   Alert,
   Platform,
+  Image,
 } from 'react-native';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useItems } from '../../../hooks/useItems';
@@ -18,9 +19,10 @@ import { useTheme } from '../../../lib/ThemeContext';
 import { useToast } from '../../../lib/ToastContext';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Sharing from 'expo-sharing';
+import * as ImagePicker from 'expo-image-picker';
 
 export default function CategoryItems() {
   const { categoryId } = useLocalSearchParams();
@@ -37,6 +39,7 @@ export default function CategoryItems() {
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('0');
   const [datasheetUri, setDatasheetUri] = useState(null);
+  const [itemImageUri, setItemImageUri] = useState(null);
 
   const { getItemsByCategory, addItem, updateItem, deleteItem, searchItems } = useItems();
   const { getCategoryById, getCategories } = useCategories();
@@ -116,6 +119,38 @@ export default function CategoryItems() {
     }
   };
 
+  const handlePickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const fileName = asset.uri.split('/').pop();
+        const targetDir = `${FileSystem.documentDirectory}images/`;
+        
+        const dirInfo = await FileSystem.getInfoAsync(targetDir);
+        if (!dirInfo.exists) {
+          await FileSystem.makeDirectoryAsync(targetDir, { intermediates: true });
+        }
+
+        const newUri = `${targetDir}${Date.now()}_${fileName}`;
+        await FileSystem.copyAsync({
+          from: asset.uri,
+          to: newUri,
+        });
+        setItemImageUri(newUri);
+        showToast('Image attached', 'info');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
   const handleViewDatasheet = async (uri) => {
     if (!uri) return;
     try {
@@ -142,10 +177,10 @@ export default function CategoryItems() {
     try {
       const qty = parseInt(quantity) || 0;
       if (editingItem) {
-        await updateItem(editingItem.id, name.trim(), qty, datasheetUri);
+        await updateItem(editingItem.id, name.trim(), qty, datasheetUri, null, itemImageUri);
         showToast('Item updated', 'success');
       } else {
-        await addItem(parseInt(categoryId), name.trim(), qty, datasheetUri);
+        await addItem(parseInt(categoryId), name.trim(), qty, datasheetUri, itemImageUri);
         showToast('Item added', 'success');
       }
       resetForm();
@@ -188,6 +223,7 @@ export default function CategoryItems() {
     setName('');
     setQuantity('0');
     setDatasheetUri(null);
+    setItemImageUri(null);
     setEditingItem(null);
     setModalVisible(false);
   };
@@ -197,6 +233,7 @@ export default function CategoryItems() {
     setName(item.name);
     setQuantity(item.quantity.toString());
     setDatasheetUri(item.datasheet_uri);
+    setItemImageUri(item.image_uri);
     setModalVisible(true);
   };
 
@@ -209,7 +246,12 @@ export default function CategoryItems() {
   const renderItem = ({ item }) => (
     <View style={[styles.itemCard, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
       <View style={styles.itemHeader}>
-        <Text style={[styles.itemName, { color: theme.text }]}>{item.name}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+          {item.image_uri && (
+            <Image source={{ uri: item.image_uri }} style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }} />
+          )}
+          <Text style={[styles.itemName, { color: theme.text }]}>{item.name}</Text>
+        </View>
         <View style={styles.itemActions}>
           <TouchableOpacity onPress={() => openMoveModal(item)} style={styles.iconButton}>
             <Ionicons name="arrow-forward-outline" size={20} color={theme.primary} />
@@ -295,6 +337,17 @@ export default function CategoryItems() {
               onChangeText={setQuantity}
               keyboardType="numeric"
             />
+
+            <TouchableOpacity 
+              style={[styles.pickButton, { borderColor: theme.primary }]} 
+              onPress={handlePickImage}
+            >
+              <Ionicons name="image" size={20} color={theme.primary} />
+              <Text style={{ color: theme.primary, marginLeft: 8 }}>
+                {itemImageUri ? 'Change Image' : 'Select Image'}
+              </Text>
+            </TouchableOpacity>
+            {itemImageUri && <Image source={{ uri: itemImageUri }} style={{ width: 50, height: 50, marginBottom: 10, borderRadius: 5 }} />}
 
             <TouchableOpacity 
               style={[styles.pickButton, { borderColor: theme.primary }]} 

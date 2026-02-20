@@ -1,12 +1,12 @@
 import { db } from '../lib/database';
 
 export function useItems() {
-  const addItem = async (categoryId, name, quantity = 0, datasheetUri = null) => {
+  const addItem = async (categoryId, name, quantity = 0, datasheetUri = null, imageUri = null) => {
     try {
       const result = await db.runAsync(
-        `INSERT INTO items (category_id, name, quantity, datasheet_uri)
-         VALUES (?, ?, ?, ?);`,
-        [categoryId, name, quantity, datasheetUri]
+        `INSERT INTO items (category_id, name, quantity, datasheet_uri, image_uri)
+         VALUES (?, ?, ?, ?, ?);`,
+        [categoryId, name, quantity, datasheetUri, imageUri]
       );
       return result;
     } catch (error) {
@@ -28,17 +28,17 @@ export function useItems() {
     }
   };
 
-  const updateItem = async (id, name, quantity, datasheetUri = null, categoryId = null) => {
+  const updateItem = async (id, name, quantity, datasheetUri = null, categoryId = null, imageUri = null) => {
     try {
       if (categoryId) {
         await db.runAsync(
-          `UPDATE items SET name = ?, quantity = ?, datasheet_uri = ?, category_id = ? WHERE id = ?;`,
-          [name, quantity, datasheetUri, categoryId, id]
+          `UPDATE items SET name = ?, quantity = ?, datasheet_uri = ?, category_id = ?, image_uri = ? WHERE id = ?;`,
+          [name, quantity, datasheetUri, categoryId, imageUri, id]
         );
       } else {
         await db.runAsync(
-          `UPDATE items SET name = ?, quantity = ?, datasheet_uri = ? WHERE id = ?;`,
-          [name, quantity, datasheetUri, id]
+          `UPDATE items SET name = ?, quantity = ?, datasheet_uri = ?, image_uri = ? WHERE id = ?;`,
+          [name, quantity, datasheetUri, imageUri, id]
         );
       }
     } catch (error) {

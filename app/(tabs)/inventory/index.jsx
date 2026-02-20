@@ -9,18 +9,34 @@ import {
   TextInput,
   Button,
   Alert,
+  Platform,
+  Image,
+  Dimensions,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCategories } from '../../../hooks/useCategories';
+import { useItems } from '../../../hooks/useItems';
 import { useTheme } from '../../../lib/ThemeContext';
 import { useToast } from '../../../lib/ToastContext';
 import { Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as IntentLauncher from 'expo-intent-launcher';
+import * as Sharing from 'expo-sharing';
+import * as ImagePicker from 'expo-image-picker';
+
+const { width } = Dimensions.get('window');
+const cardWidth = (width - 48) / 2;
 
 export default function InventoryIndex() {
   const [categories, setCategories] = useState([]);
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
-  const { getCategories, addCategory, deleteCategory } = useCategories();
+  const [categoryImageUri, setCategoryImageUri] = useState(null);
+  const [categoryToEdit, setCategoryToEdit] = useState(null);
+  const { getCategories, addCategory, deleteCategory, searchCategories, updateCategory } = useCategories();
+  const { searchItems } = useItems();
   const { theme } = useTheme();
   const { showToast } = useToast();
   const router = useRouter();
@@ -34,13 +50,69 @@ export default function InventoryIndex() {
     }
   };
 
+  const performSearch = async (query) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    try {
+      const [catResults, itemResults] = await Promise.all([
+        searchCategories(query),
+        searchItems(query)
+      ]);
+
+      const formattedCats = catResults.map(c => ({ ...c, type: 'category' }));
+      const formattedItems = itemResults.map(i => ({ ...i, type: 'item' }));
+
+      setSearchResults([...formattedCats, ...formattedItems]);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      performSearch(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
   useFocusEffect(
     useCallback(() => {
       fetchCategories();
-    }, [])
+      if (searchQuery.trim()) {
+        performSearch(searchQuery);
+      }
+    }, [searchQuery])
   );
 
-  const handleAddCategory = async () => {
+  const handlePickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        const asset = result.assets[0];
+        const targetDir = `${FileSystem.documentDirectory}images/`;
+        const dirInfo = await FileSystem.getInfoAsync(targetDir);
+        if (!dirInfo.exists) {
+          await FileSystem.makeDirectoryAsync(targetDir, { intermediates: true });
+        }
+        const newUri = `${targetDir}${Date.now()}.jpg`;
+        await FileSystem.copyAsync({ from: asset.uri, to: newUri });
+        setCategoryImageUri(newUri);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
+  const handleSaveCategory = async () => {
     if (!newCategoryName.trim()) {
       Alert.alert('Error', 'Category name cannot be empty');
       return;
@@ -48,14 +120,35 @@ export default function InventoryIndex() {
     try {
       const name = newCategoryName.trim();
       const capitalized = name.charAt(0).toUpperCase() + name.slice(1);
-      await addCategory(capitalized);
-      setNewCategoryName('');
-      setModalVisible(false);
+      
+      if (categoryToEdit) {
+        await updateCategory(categoryToEdit.id, capitalized, categoryImageUri);
+        showToast('Category updated successfully', 'success');
+      } else {
+        await addCategory(capitalized, categoryImageUri);
+        showToast('Category added successfully', 'success');
+      }
+      
+      resetModal();
       fetchCategories();
-      showToast('Category added successfully', 'success');
+      if (searchQuery.trim()) performSearch(searchQuery);
     } catch (error) {
-      Alert.alert('Error', 'Could not add category');
+      Alert.alert('Error', 'Could not save category');
     }
+  };
+
+  const resetModal = () => {
+    setNewCategoryName('');
+    setCategoryImageUri(null);
+    setCategoryToEdit(null);
+    setModalVisible(false);
+  };
+
+  const openEditModal = (category) => {
+    setCategoryToEdit(category);
+    setNewCategoryName(category.name);
+    setCategoryImageUri(category.image_uri);
+    setModalVisible(true);
   };
 
   const handleDeleteCategory = (id, name) => {
@@ -82,30 +175,105 @@ export default function InventoryIndex() {
     );
   };
 
-  const renderItem = ({ item }) => (
-    <View style={[styles.categoryItem, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
+  const handleViewDatasheet = async (uri) => {
+    if (!uri) return;
+    try {
+      if (Platform.OS === 'android') {
+        const contentUri = await FileSystem.getContentUriAsync(uri);
+        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: contentUri,
+          flags: 1,
+          type: 'application/pdf',
+        });
+      } else {
+        await Sharing.shareAsync(uri);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Could not open datasheet');
+    }
+  };
+
+  const renderItem = ({ item }) => {
+    if (item.type === 'item') {
+      return (
+        <View style={[styles.gridItemCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <View style={styles.gridItemContent}>
+            {item.image_uri ? (
+              <Image source={{ uri: item.image_uri }} style={styles.gridItemThumbnail} />
+            ) : (
+              <View style={[styles.gridItemThumbnail, { backgroundColor: theme.border, justifyContent: 'center', alignItems: 'center' }]}>
+                <Ionicons name="cube-outline" size={30} color={theme.card} />
+              </View>
+            )}
+            <Text style={[styles.gridItemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
+            <Text style={[styles.gridCategoryLabel, { color: theme.primary }]} numberOfLines={1}>{item.category_name}</Text>
+            <Text style={[styles.gridItemQty, { color: theme.text }]}>Qty: {item.quantity}</Text>
+          </View>
+          {item.datasheet_uri && (
+            <TouchableOpacity 
+              onPress={() => handleViewDatasheet(item.datasheet_uri)}
+              style={styles.gridDatasheetIcon}
+            >
+              <Ionicons name="document-text" size={16} color={theme.primary} />
+            </TouchableOpacity>
+          )}
+        </View>
+      );
+    }
+
+    return (
       <TouchableOpacity
-        style={styles.categoryInfo}
+        style={[styles.categoryCard, { backgroundColor: theme.card }]}
         onPress={() => router.push(`/inventory/${item.id}`)}
       >
-        <Text style={[styles.categoryName, { color: theme.text }]}>{item.name}</Text>
+        {item.image_uri ? (
+          <Image source={{ uri: item.image_uri }} style={styles.categoryCardImage} />
+        ) : (
+          <View style={[styles.categoryCardImage, { backgroundColor: theme.border, justifyContent: 'center', alignItems: 'center' }]}>
+            <Ionicons name="folder-outline" size={50} color={theme.card} />
+          </View>
+        )}
+        <View style={styles.categoryCardOverlay}>
+          <Text style={styles.categoryCardName} numberOfLines={1}>{item.name}</Text>
+        </View>
+        {item.id !== 1 && !searchQuery.trim() && (
+          <View style={styles.categoryCardActions}>
+            <TouchableOpacity onPress={() => openEditModal(item)} style={styles.cardIconButton}>
+              <Ionicons name="pencil" size={16} color="#FFF" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => handleDeleteCategory(item.id, item.name)} style={styles.cardIconButton}>
+              <Ionicons name="trash" size={16} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+        )}
       </TouchableOpacity>
-      {item.id !== 1 && (
-        <TouchableOpacity onPress={() => handleDeleteCategory(item.id, item.name)}>
-          <Ionicons name="trash-outline" size={24} color={theme.danger} />
-        </TouchableOpacity>
-      )}
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.searchContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <Ionicons name="search" size={20} color={theme.border} style={styles.searchIcon} />
+        <TextInput
+          style={[styles.searchInput, { color: theme.text }]}
+          placeholder="Search inventory..."
+          placeholderTextColor={theme.border}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
+
       <FlatList
-        data={categories}
-        keyExtractor={(item) => item.id.toString()}
+        data={searchQuery.trim() ? searchResults : categories}
+        keyExtractor={(item) => (item.type || 'category') + item.id.toString()}
         renderItem={renderItem}
+        numColumns={2}
+        key={searchQuery.trim() ? 'grid-search' : 'grid-categories'}
+        columnWrapperStyle={styles.row}
         ListEmptyComponent={() => (
-          <Text style={[styles.emptyText, { color: theme.text }]}>No categories found.</Text>
+          <Text style={[styles.emptyText, { color: theme.text }]}>
+            {searchQuery.trim() ? 'No results found.' : 'No categories found.'}
+          </Text>
         )}
       />
 
@@ -120,11 +288,28 @@ export default function InventoryIndex() {
         animationType="slide"
         transparent={true}
         visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={resetModal}
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>Add Category</Text>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
+              {categoryToEdit ? 'Edit Category' : 'Add Category'}
+            </Text>
+            
+            <TouchableOpacity 
+              style={[styles.imagePicker, { borderColor: theme.border }]} 
+              onPress={handlePickImage}
+            >
+              {categoryImageUri ? (
+                <Image source={{ uri: categoryImageUri }} style={styles.previewImage} />
+              ) : (
+                <View style={styles.imagePlaceholder}>
+                  <Ionicons name="camera-outline" size={40} color={theme.border} />
+                  <Text style={{ color: theme.border }}>Add Image</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
             <TextInput
               style={[styles.input, { color: theme.text, borderColor: theme.border }]}
               placeholder="Category Name"
@@ -134,8 +319,8 @@ export default function InventoryIndex() {
               autoFocus
             />
             <View style={styles.modalButtons}>
-              <Button title="Cancel" onPress={() => setModalVisible(false)} color={theme.danger} />
-              <Button title="Add" onPress={handleAddCategory} color={theme.primary} />
+              <Button title="Cancel" onPress={resetModal} color={theme.danger} />
+              <Button title={categoryToEdit ? "Update" : "Add"} onPress={handleSaveCategory} color={theme.primary} />
             </View>
           </View>
         </View>
@@ -147,23 +332,101 @@ export default function InventoryIndex() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
+    padding: 8,
   },
-  categoryItem: {
+  searchContainer: {
     flexDirection: 'row',
-    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    marginHorizontal: 8,
+    marginBottom: 16,
+    height: 44,
+  },
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1 },
+  row: {
+    justifyContent: 'flex-start',
+  },
+  categoryCard: {
+    width: cardWidth,
+    height: cardWidth,
+    margin: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  categoryCardImage: {
+    width: '100%',
+    height: '100%',
+  },
+  categoryCardOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: 8,
+  },
+  categoryCardName: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  categoryCardActions: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    flexDirection: 'row',
+  },
+  cardIconButton: {
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 15,
+    width: 28,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 4,
+  },
+  gridItemCard: {
+    width: cardWidth,
+    margin: 8,
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  gridItemContent: {
+    alignItems: 'center',
+  },
+  gridItemThumbnail: {
+    width: 70,
+    height: 70,
     borderRadius: 8,
     marginBottom: 8,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
   },
-  categoryInfo: {
-    flex: 1,
+  gridItemName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
-  categoryName: {
-    fontSize: 18,
-    fontWeight: '500',
+  gridCategoryLabel: {
+    fontSize: 11,
+    marginVertical: 2,
+  },
+  gridItemQty: {
+    fontSize: 12,
+  },
+  gridDatasheetIcon: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
   },
   emptyText: {
     textAlign: 'center',
@@ -201,6 +464,24 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 16,
+  },
+  imagePicker: {
+    width: '100%',
+    height: 150,
+    borderWidth: 1,
+    borderRadius: 12,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  imagePlaceholder: {
+    alignItems: 'center',
   },
   input: {
     borderWidth: 1,

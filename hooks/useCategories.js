@@ -1,15 +1,27 @@
 import { db } from '../lib/database';
 
 export function useCategories() {
-  const addCategory = async (name) => {
+  const addCategory = async (name, imageUri = null) => {
     try {
       const result = await db.runAsync(
-        `INSERT INTO categories (name) VALUES (?);`,
-        [name]
+        `INSERT INTO categories (name, image_uri) VALUES (?, ?);`,
+        [name, imageUri]
       );
       return result;
     } catch (error) {
       console.error('Error adding category:', error);
+      throw error;
+    }
+  };
+
+  const updateCategory = async (id, name, imageUri = null) => {
+    try {
+      await db.runAsync(
+        `UPDATE categories SET name = ?, image_uri = ? WHERE id = ?;`,
+        [name, imageUri, id]
+      );
+    } catch (error) {
+      console.error('Error updating category:', error);
       throw error;
     }
   };
@@ -48,16 +60,28 @@ export function useCategories() {
         }
       };
     
-      const getCategoryById = async (id) => {
-        try {
-          const category = await db.getFirstAsync(`SELECT * FROM categories WHERE id = ?;`, [id]);
-          return category;
-        } catch (error) {
-          console.error('Error getting category by id:', error);
-          throw error;
+        const getCategoryById = async (id) => {
+          try {
+            const category = await db.getFirstAsync(`SELECT * FROM categories WHERE id = ?;`, [id]);
+            return category;
+          } catch (error) {
+            console.error('Error getting category by id:', error);
+            throw error;
+          }
+        };
+      
+        const searchCategories = async (query) => {
+          try {
+            const allRows = await db.getAllAsync(
+              `SELECT * FROM categories WHERE name LIKE ? ORDER BY (id = 1) ASC, name ASC;`,
+              [`%${query}%`]
+            );
+            return allRows;
+          } catch (error) {
+            console.error('Error searching categories:', error);
+            throw error;
+          }
+        };
+      
+          return { addCategory, getCategories, deleteCategory, getCategoryById, searchCategories, updateCategory };
         }
-      };
-    
-      return { addCategory, getCategories, deleteCategory, getCategoryById };
-    }
-    
