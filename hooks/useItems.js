@@ -1,4 +1,5 @@
 import { db } from '../lib/database';
+import { safeDeleteFile } from '../lib/fileUtils';
 
 export function useItems() {
   const addItem = async (categoryId, name, quantity = 0, datasheetUri = null, imageUri = null) => {
@@ -28,8 +29,21 @@ export function useItems() {
     }
   };
 
+  const getItemById = async (id) => {
+    try {
+      const item = await db.getFirstAsync(`SELECT * FROM items WHERE id = ?;`, [id]);
+      return item;
+    } catch (error) {
+      console.error('Error getting item by id:', error);
+      throw error;
+    }
+  };
+
   const updateItem = async (id, name, quantity, datasheetUri = null, categoryId = null, imageUri = null) => {
     try {
+      // Get the current item to check for existing media URIs
+      const current = await getItemById(id);
+
       if (categoryId) {
         await db.runAsync(
           `UPDATE items SET name = ?, quantity = ?, datasheet_uri = ?, category_id = ?, image_uri = ? WHERE id = ?;`,
@@ -41,6 +55,16 @@ export function useItems() {
           [name, quantity, datasheetUri, imageUri, id]
         );
       }
+
+      // Cleanup old media files if they were changed
+      if (current) {
+        if (imageUri && current.image_uri && current.image_uri !== imageUri) {
+          await safeDeleteFile(current.image_uri);
+        }
+        if (datasheetUri && current.datasheet_uri && current.datasheet_uri !== datasheetUri) {
+          await safeDeleteFile(current.datasheet_uri);
+        }
+      }
     } catch (error) {
       console.error('Error updating item:', error);
       throw error;
@@ -49,25 +73,41 @@ export function useItems() {
 
   const deleteItem = async (id) => {
     try {
+      // Get the item first to retrieve media URIs
+      const item = await getItemById(id);
+
       await db.runAsync(
         `DELETE FROM items WHERE id = ?;`,
         [id]
       );
+
+      // Cleanup media files after deletion
+      if (item) {
+        if (item.image_uri) await safeDeleteFile(item.image_uri);
+        if (item.datasheet_uri) await safeDeleteFile(item.datasheet_uri);
+      }
     } catch (error) {
       console.error('Error deleting item:', error);
       throw error;
     }
   };
 
-  const searchItems = async (query) => {
+  const searchItems = async (query, categoryId = null) => {
     try {
-      const allRows = await db.getAllAsync(
-        `SELECT i.*, c.name as category_name 
-         FROM items i 
-         JOIN categories c ON i.category_id = c.id
-         WHERE i.name LIKE ? OR c.name LIKE ?;`,
-        [`%${query}%`, `%${query}%`]
-      );
+      let queryStr = `
+        SELECT i.*, c.name as category_name 
+        FROM items i 
+        JOIN categories c ON i.category_id = c.id
+        WHERE (i.name LIKE ? OR c.name LIKE ?)
+      `;
+      const params = [`%${query}%`, `%${query}%`];
+
+      if (categoryId) {
+        queryStr += ` AND i.category_id = ?`;
+        params.push(categoryId);
+      }
+
+      const allRows = await db.getAllAsync(queryStr, params);
       return allRows;
     } catch (error) {
       console.error('Error searching items:', error);
@@ -75,5 +115,5 @@ export function useItems() {
     }
   };
 
-  return { addItem, getItemsByCategory, updateItem, deleteItem, searchItems };
+  return { addItem, getItemsByCategory, getItemById, updateItem, deleteItem, searchItems };
 }

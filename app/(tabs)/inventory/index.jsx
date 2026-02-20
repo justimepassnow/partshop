@@ -70,6 +70,11 @@ export default function InventoryIndex() {
     }
   };
 
+  const searchQueryRef = useRef(searchQuery);
+  useEffect(() => {
+    searchQueryRef.current = searchQuery;
+  }, [searchQuery]);
+
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       performSearch(searchQuery);
@@ -80,15 +85,22 @@ export default function InventoryIndex() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchCategories();
-      if (searchQuery.trim()) {
-        performSearch(searchQuery);
+      if (!searchQueryRef.current.trim()) {
+        fetchCategories();
+      } else {
+        performSearch(searchQueryRef.current);
       }
-    }, [searchQuery])
+    }, [])
   );
 
   const handlePickImage = async () => {
     try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
+        return;
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -235,6 +247,7 @@ export default function InventoryIndex() {
         )}
         <View style={styles.categoryCardOverlay}>
           <Text style={styles.categoryCardName} numberOfLines={1}>{item.name}</Text>
+          <Text style={styles.categoryCountText}>{item.item_count || 0} items</Text>
         </View>
         {item.id !== 1 && !searchQuery.trim() && (
           <View style={styles.categoryCardActions}>
@@ -377,6 +390,11 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  categoryCountText: {
+    color: '#EEE',
+    fontSize: 12,
     textAlign: 'center',
   },
   categoryCardActions: {

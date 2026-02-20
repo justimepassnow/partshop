@@ -40,6 +40,7 @@ export default function CategoryItems() {
   const [quantity, setQuantity] = useState('0');
   const [datasheetUri, setDatasheetUri] = useState(null);
   const [itemImageUri, setItemImageUri] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const { getItemsByCategory, addItem, updateItem, deleteItem, searchItems } = useItems();
   const { getCategoryById, getCategories } = useCategories();
@@ -71,9 +72,7 @@ export default function CategoryItems() {
     try {
       let data;
       if (searchQuery.trim()) {
-        data = await searchItems(searchQuery);
-        // Filter by category if searching across all
-        data = data.filter(item => item.category_id === parseInt(categoryId));
+        data = await searchItems(searchQuery, parseInt(categoryId));
       } else {
         data = await getItemsByCategory(parseInt(categoryId));
       }
@@ -97,6 +96,7 @@ export default function CategoryItems() {
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
+        setLoading(true);
         const asset = result.assets[0];
         const fileName = asset.name;
         const targetDir = `${FileSystem.documentDirectory}datasheets/`;
@@ -116,11 +116,19 @@ export default function CategoryItems() {
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to pick document');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handlePickImage = async () => {
     try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
+        return;
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -129,6 +137,7 @@ export default function CategoryItems() {
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
+        setLoading(true);
         const asset = result.assets[0];
         const fileName = asset.uri.split('/').pop();
         const targetDir = `${FileSystem.documentDirectory}images/`;
@@ -148,6 +157,8 @@ export default function CategoryItems() {
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to pick image');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -174,6 +185,7 @@ export default function CategoryItems() {
       Alert.alert('Error', 'Name is required');
       return;
     }
+    setLoading(true);
     try {
       const qty = parseInt(quantity) || 0;
       if (editingItem) {
@@ -187,11 +199,14 @@ export default function CategoryItems() {
       fetchItems();
     } catch (error) {
       Alert.alert('Error', 'Could not save item');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleMoveItem = async () => {
     if (!targetCategoryId || !itemToMove) return;
+    setLoading(true);
     try {
       await updateItem(itemToMove.id, itemToMove.name, itemToMove.quantity, itemToMove.datasheet_uri, targetCategoryId);
       setMoveModalVisible(false);
@@ -201,6 +216,8 @@ export default function CategoryItems() {
       showToast('Item moved successfully', 'success');
     } catch (error) {
       Alert.alert('Error', 'Could not move item');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -361,8 +378,8 @@ export default function CategoryItems() {
             {datasheetUri && <Text style={{color: theme.text, fontSize: 12, marginBottom: 10}} numberOfLines={1}>Selected: {datasheetUri.split('/').pop()}</Text>}
 
             <View style={styles.modalButtons}>
-              <Button title="Cancel" onPress={resetForm} color={theme.danger} />
-              <Button title="Save" onPress={handleSaveItem} color={theme.primary} />
+              <Button title="Cancel" onPress={resetForm} color={theme.danger} disabled={loading} />
+              <Button title={loading ? "Saving..." : "Save"} onPress={handleSaveItem} color={theme.primary} disabled={loading} />
             </View>
           </View>
         </View>
@@ -373,7 +390,7 @@ export default function CategoryItems() {
         animationType="fade"
         transparent={true}
         visible={moveModalVisible}
-        onRequestClose={() => setMoveModalVisible(false)}
+        onRequestClose={() => !loading && setMoveModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
@@ -388,6 +405,7 @@ export default function CategoryItems() {
                     { borderColor: theme.border, backgroundColor: targetCategoryId === item.id ? theme.primary : 'transparent' }
                   ]}
                   onPress={() => setTargetCategoryId(item.id)}
+                  disabled={loading}
                 >
                   <Text style={{ color: targetCategoryId === item.id ? '#FFF' : theme.text }}>{item.name}</Text>
                 </TouchableOpacity>
@@ -398,6 +416,7 @@ export default function CategoryItems() {
               <TouchableOpacity 
                 style={[styles.customButton, { backgroundColor: theme.danger }]} 
                 onPress={() => setMoveModalVisible(false)}
+                disabled={loading}
               >
                 <Text style={styles.buttonText}>Cancel</Text>
               </TouchableOpacity>
@@ -407,9 +426,9 @@ export default function CategoryItems() {
                   { backgroundColor: targetCategoryId ? theme.primary : '#ccc' }
                 ]} 
                 onPress={handleMoveItem}
-                disabled={!targetCategoryId}
+                disabled={!targetCategoryId || loading}
               >
-                <Text style={styles.buttonText}>Move</Text>
+                <Text style={styles.buttonText}>{loading ? 'Moving...' : 'Move'}</Text>
               </TouchableOpacity>
             </View>
           </View>

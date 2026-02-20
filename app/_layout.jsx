@@ -44,9 +44,11 @@ export default function RootLayout() {
           flex: 1,
           justifyContent: 'center',
           alignItems: 'center',
+          padding: 20,
         }}
       >
-        <Text>Database failed to initialize: {error.message}</Text>
+        <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 10 }}>Database Error</Text>
+        <Text style={{ textAlign: 'center' }}>Database failed to initialize. Please restart the app.</Text>
       </View>
     );
   }

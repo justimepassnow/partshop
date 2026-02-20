@@ -57,13 +57,17 @@ export function useShoppingList() {
 
   const purchaseShoppingItem = async (item) => {
     try {
-      // 1. Add to items table
-      await db.runAsync(
-        `INSERT INTO items (category_id, name, quantity) VALUES (?, ?, ?);`,
-        [item.target_category_id || 1, item.name, item.target_quantity]
-      );
-      // 2. Remove from shopping list
-      await db.runAsync(`DELETE FROM shopping_list WHERE id = ?;`, [item.id]);
+      await db.withTransactionAsync(async () => {
+        // 1. Upsert into items table: if name/category exists, add to quantity
+        await db.runAsync(
+          `INSERT INTO items (category_id, name, quantity) 
+           VALUES (?, ?, ?)
+           ON CONFLICT(category_id, name) DO UPDATE SET quantity = quantity + excluded.quantity;`,
+          [item.target_category_id || 1, item.name, item.target_quantity]
+        );
+        // 2. Remove from shopping list
+        await db.runAsync(`DELETE FROM shopping_list WHERE id = ?;`, [item.id]);
+      });
     } catch (error) {
       console.error('Error purchasing shopping item:', error);
       throw error;
@@ -83,6 +87,23 @@ export function useShoppingList() {
     }
   };
 
+  const searchShoppingList = async (query) => {
+    try {
+      const allRows = await db.getAllAsync(
+        `SELECT sl.*, c.name as category_name 
+         FROM shopping_list sl 
+         LEFT JOIN categories c ON sl.target_category_id = c.id 
+         WHERE sl.name LIKE ? OR c.name LIKE ?
+         ORDER BY sl.is_purchased ASC;`,
+        [`%${query}%`, `%${query}%`]
+      );
+      return allRows;
+    } catch (error) {
+      console.error('Error searching shopping list:', error);
+      throw error;
+    }
+  };
+
   return {
     addToShoppingList,
     getShoppingList,
@@ -90,5 +111,6 @@ export function useShoppingList() {
     deleteShoppingItem,
     purchaseShoppingItem,
     purchaseShoppingItemById,
+    searchShoppingList,
   };
 }

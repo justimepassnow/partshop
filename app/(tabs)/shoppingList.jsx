@@ -20,10 +20,12 @@ import { Ionicons } from '@expo/vector-icons';
 export default function ShoppingList() {
   const [list, setList] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [name, setName] = useState('');
   const [targetQty, setTargetQty] = useState('1');
   const [selectedCategoryId, setSelectedCategoryId] = useState('1');
+  const [loading, setLoading] = useState(false);
 
   const { 
     getShoppingList, 
@@ -31,18 +33,22 @@ export default function ShoppingList() {
     togglePurchased, 
     deleteShoppingItem, 
     purchaseShoppingItem,
-    purchaseShoppingItemById
+    purchaseShoppingItemById,
+    searchShoppingList
   } = useShoppingList();
   const { getCategories } = useCategories();
   const { theme } = useTheme();
   const { showToast } = useToast();
 
-  const fetchData = async () => {
+  const fetchData = async (query = '') => {
     try {
-      const [listData, catData] = await Promise.all([
-        getShoppingList(),
-        getCategories()
-      ]);
+      let listData;
+      if (query.trim()) {
+        listData = await searchShoppingList(query);
+      } else {
+        listData = await getShoppingList();
+      }
+      const catData = await getCategories();
       setList(listData);
       setCategories(catData);
     } catch (error) {
@@ -50,10 +56,18 @@ export default function ShoppingList() {
     }
   };
 
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchData(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
   useFocusEffect(
     useCallback(() => {
-      fetchData();
-    }, [])
+      fetchData(searchQuery);
+    }, [searchQuery])
   );
 
   const handleAddItem = async () => {
@@ -61,30 +75,36 @@ export default function ShoppingList() {
       Alert.alert('Error', 'Name is required');
       return;
     }
+    setLoading(true);
     try {
       await addToShoppingList(parseInt(selectedCategoryId), name.trim(), parseInt(targetQty) || 1);
       resetForm();
-      fetchData();
+      fetchData(searchQuery);
       showToast('Added to shopping list', 'success');
     } catch (error) {
       Alert.alert('Error', 'Could not add to list');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleTogglePurchase = async (item) => {
+    setLoading(true);
     try {
       // Automatically move to inventory when checked
       await purchaseShoppingItemById(item.id);
-      fetchData();
+      fetchData(searchQuery);
       showToast(`${item.name} moved to inventory`, 'success');
     } catch (error) {
       Alert.alert('Error', 'Could not process purchase');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDelete = async (id) => {
       await deleteShoppingItem(id);
-      fetchData();
+      fetchData(searchQuery);
       showToast('Item removed', 'info');
   };
 
@@ -93,6 +113,7 @@ export default function ShoppingList() {
     setTargetQty('1');
     setSelectedCategoryId('1');
     setModalVisible(false);
+    setLoading(false);
   };
 
   const renderItem = ({ item }) => (
@@ -112,17 +133,19 @@ export default function ShoppingList() {
         <TouchableOpacity 
           onPress={() => handleTogglePurchase(item)} 
           style={styles.iconButton}
+          disabled={loading}
         >
           <Ionicons 
             name="checkbox-outline" 
             size={24} 
-            color={theme.text} 
+            color={loading ? theme.border : theme.text} 
           />
         </TouchableOpacity>
 
         <TouchableOpacity 
           onPress={() => handleDelete(item.id)} 
           style={styles.iconButton}
+          disabled={loading}
         >
           <Ionicons name="trash-outline" size={24} color={theme.danger} />
         </TouchableOpacity>
@@ -132,6 +155,17 @@ export default function ShoppingList() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.searchContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <Ionicons name="search" size={20} color={theme.border} style={styles.searchIcon} />
+        <TextInput
+          style={[styles.searchInput, { color: theme.text }]}
+          placeholder="Search shopping list..."
+          placeholderTextColor={theme.border}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
+
       <FlatList
         data={list}
         keyExtractor={(item) => item.id.toString()}
@@ -152,7 +186,7 @@ export default function ShoppingList() {
         animationType="slide"
         transparent={true}
         visible={modalVisible}
-        onRequestClose={resetForm}
+        onRequestClose={() => !loading && resetForm()}
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
@@ -164,6 +198,7 @@ export default function ShoppingList() {
               placeholderTextColor={theme.border}
               value={name}
               onChangeText={setName}
+              editable={!loading}
             />
 
             <TextInput
@@ -173,6 +208,7 @@ export default function ShoppingList() {
               value={targetQty}
               onChangeText={setTargetQty}
               keyboardType="numeric"
+              editable={!loading}
             />
 
             <Text style={[styles.label, { color: theme.text }]}>Destination Category</Text>
@@ -191,6 +227,7 @@ export default function ShoppingList() {
                         borderColor: theme.primary
                       }
                     ]}
+                    disabled={loading}
                   >
                     <Text style={{ color: selectedCategoryId === item.id.toString() ? '#FFF' : theme.text }}>{item.name}</Text>
                   </TouchableOpacity>
@@ -200,8 +237,8 @@ export default function ShoppingList() {
             </View>
 
             <View style={styles.modalButtons}>
-              <Button title="Cancel" onPress={resetForm} color={theme.danger} />
-              <Button title="Add" onPress={handleAddItem} color={theme.primary} />
+              <Button title="Cancel" onPress={resetForm} color={theme.danger} disabled={loading} />
+              <Button title={loading ? "Adding..." : "Add"} onPress={handleAddItem} color={theme.primary} disabled={loading} />
             </View>
           </View>
         </View>
@@ -212,6 +249,17 @@ export default function ShoppingList() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    marginBottom: 16,
+    height: 44,
+  },
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1 },
   card: {
     flexDirection: 'row',
     padding: 16,
