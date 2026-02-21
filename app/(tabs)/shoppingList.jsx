@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,15 +7,35 @@ import {
   TouchableOpacity,
   Modal,
   TextInput,
-  Button,
   Alert,
+  Animated,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useShoppingList } from '../../hooks/useShoppinglist';
 import { useCategories } from '../../hooks/useCategories';
 import { useTheme } from '../../lib/ThemeContext';
 import { useToast } from '../../lib/ToastContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+
+const FadeInView = (props) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: true,
+      delay: props.delay || 0,
+    }).start();
+  }, [fadeAnim]);
+
+  return (
+    <Animated.View style={{ ...props.style, opacity: fadeAnim }}>
+      {props.children}
+    </Animated.View>
+  );
+};
 
 export default function ShoppingList() {
   const [list, setList] = useState([]);
@@ -30,14 +50,13 @@ export default function ShoppingList() {
   const { 
     getShoppingList, 
     addToShoppingList, 
-    togglePurchased, 
     deleteShoppingItem, 
-    purchaseShoppingItem,
     purchaseShoppingItemById,
     searchShoppingList
   } = useShoppingList();
   const { getCategories } = useCategories();
-  const { theme } = useTheme();
+  const { colors, spacing, radius, typography } = useTheme();
+  const insets = useSafeAreaInsets();
   const { showToast } = useToast();
 
   const fetchData = async (query = '') => {
@@ -116,102 +135,120 @@ export default function ShoppingList() {
     setLoading(false);
   };
 
-  const renderItem = ({ item }) => (
-    <View style={[styles.card, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-      <View style={styles.cardInfo}>
-        <Text style={[
-          styles.itemName, 
-          { color: theme.text }
-        ]}>
-          {item.name}
-        </Text>
-        <Text style={[styles.itemSub, { color: theme.text, opacity: 0.7 }]}>
-          Qty: {item.target_quantity} | {item.category_name || 'Uncategorized'}
-        </Text>
-      </View>
-      <View style={styles.cardActions}>
+  const renderItem = ({ item, index }) => (
+    <FadeInView delay={index * 50}>
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: radius.lg }]}>
         <TouchableOpacity 
           onPress={() => handleTogglePurchase(item)} 
-          style={styles.iconButton}
+          style={[styles.checkButton, { backgroundColor: colors.surface, borderRadius: radius.full, borderColor: colors.primary }]}
           disabled={loading}
         >
-          <Ionicons 
-            name="checkbox-outline" 
-            size={24} 
-            color={loading ? theme.border : theme.text} 
-          />
+          <View style={[styles.checkInner, { backgroundColor: colors.primary + '10' }]}>
+            <Ionicons 
+              name="checkmark" 
+              size={18} 
+              color={loading ? colors.border : colors.primary} 
+            />
+          </View>
         </TouchableOpacity>
+
+        <View style={styles.cardInfo}>
+          <Text style={[styles.itemName, { color: colors.text, ...typography.bodySemi }]} numberOfLines={1}>
+            {item.name}
+          </Text>
+          <View style={styles.badgeRow}>
+            <View style={[styles.qtyBadge, { backgroundColor: colors.surface, borderRadius: radius.sm }]}>
+              <Text style={[styles.itemSub, { color: colors.textSecondary, ...typography.small }]}>
+                {item.target_quantity} pcs
+              </Text>
+            </View>
+            <Text style={[styles.categoryLabel, { color: colors.textSecondary, ...typography.small }]} numberOfLines={1}>
+              in {item.category_name || 'Uncategorized'}
+            </Text>
+          </View>
+        </View>
 
         <TouchableOpacity 
           onPress={() => handleDelete(item.id)} 
-          style={styles.iconButton}
+          style={[styles.deleteButton, { backgroundColor: colors.danger + '10', borderRadius: radius.md }]}
           disabled={loading}
         >
-          <Ionicons name="trash-outline" size={24} color={theme.danger} />
+          <Ionicons name="trash-outline" size={18} color={colors.danger} />
         </TouchableOpacity>
       </View>
-    </View>
+    </FadeInView>
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={[styles.searchContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
-        <Ionicons name="search" size={20} color={theme.border} style={styles.searchIcon} />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg }]}>
+        <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
         <TextInput
-          style={[styles.searchInput, { color: theme.text }]}
+          style={[styles.searchInput, { color: colors.text, ...typography.body }]}
           placeholder="Search shopping list..."
-          placeholderTextColor={theme.border}
+          placeholderTextColor={colors.textSecondary}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        )}
       </View>
 
       <FlatList
         data={list}
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
+        contentContainerStyle={{ paddingVertical: spacing.sm, paddingBottom: 80 + insets.bottom }}
         ListEmptyComponent={() => (
-          <Text style={[styles.emptyText, { color: theme.text }]}>Your shopping list is empty.</Text>
+          <View style={styles.emptyContainer}>
+            <Ionicons name="cart-outline" size={64} color={colors.border} />
+            <Text style={[styles.emptyText, { color: colors.textSecondary, ...typography.body }]}>Your shopping list is empty.</Text>
+          </View>
         )}
       />
 
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: theme.primary }]}
+        style={[styles.fab, { backgroundColor: colors.primary, borderRadius: radius.full, shadowColor: colors.primary, bottom: 24 }]}
         onPress={() => setModalVisible(true)}
       >
         <Ionicons name="add" size={30} color="#FFF" />
       </TouchableOpacity>
 
       <Modal
-        animationType="slide"
+        animationType="fade"
         transparent={true}
         visible={modalVisible}
         onRequestClose={() => !loading && resetForm()}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>Add to Shopping List</Text>
+          <View style={[styles.modalContent, { backgroundColor: colors.card, borderRadius: radius.xl }]}>
+            <Text style={[styles.modalTitle, { color: colors.text, ...typography.h3 }]}>Add to Shopping List</Text>
             
+            <Text style={[styles.label, { color: colors.textSecondary, ...typography.small }]}>Item Name</Text>
             <TextInput
-              style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-              placeholder="Item Name"
-              placeholderTextColor={theme.border}
+              style={[styles.input, { color: colors.text, borderColor: colors.border, borderRadius: radius.md, ...typography.body }]}
+              placeholder="e.g. Capacitor 100uF"
+              placeholderTextColor={colors.textSecondary}
               value={name}
               onChangeText={setName}
               editable={!loading}
             />
 
+            <Text style={[styles.label, { color: colors.textSecondary, ...typography.small }]}>Target Quantity</Text>
             <TextInput
-              style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-              placeholder="Target Quantity"
-              placeholderTextColor={theme.border}
+              style={[styles.input, { color: colors.text, borderColor: colors.border, borderRadius: radius.md, ...typography.body }]}
+              placeholder="1"
+              placeholderTextColor={colors.textSecondary}
               value={targetQty}
               onChangeText={setTargetQty}
               keyboardType="numeric"
               editable={!loading}
             />
 
-            <Text style={[styles.label, { color: theme.text }]}>Destination Category</Text>
+            <Text style={[styles.label, { color: colors.textSecondary, ...typography.small }]}>Destination Category</Text>
             <View style={styles.pickerContainer}>
                <FlatList
                 data={categories}
@@ -223,13 +260,19 @@ export default function ShoppingList() {
                     style={[
                       styles.catChip, 
                       { 
-                        backgroundColor: selectedCategoryId === item.id.toString() ? theme.primary : theme.background,
-                        borderColor: theme.primary
+                        backgroundColor: selectedCategoryId === item.id.toString() ? colors.primary : colors.surface,
+                        borderColor: selectedCategoryId === item.id.toString() ? colors.primary : colors.border,
+                        borderRadius: radius.full
                       }
                     ]}
                     disabled={loading}
                   >
-                    <Text style={{ color: selectedCategoryId === item.id.toString() ? '#FFF' : theme.text }}>{item.name}</Text>
+                    <Text style={{ 
+                      color: selectedCategoryId === item.id.toString() ? '#FFF' : colors.text,
+                      ...typography.small
+                    }}>
+                      {item.name}
+                    </Text>
                   </TouchableOpacity>
                 )}
                 showsHorizontalScrollIndicator={false}
@@ -237,8 +280,22 @@ export default function ShoppingList() {
             </View>
 
             <View style={styles.modalButtons}>
-              <Button title="Cancel" onPress={resetForm} color={theme.danger} disabled={loading} />
-              <Button title={loading ? "Adding..." : "Add"} onPress={handleAddItem} color={theme.primary} disabled={loading} />
+              <TouchableOpacity 
+                style={[styles.modalButton, { backgroundColor: colors.surface, borderRadius: radius.md }]} 
+                onPress={resetForm}
+                disabled={loading}
+              >
+                <Text style={[styles.buttonText, { color: colors.textSecondary, ...typography.bodySemi }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalButton, { backgroundColor: colors.primary, borderRadius: radius.md }]} 
+                onPress={handleAddItem}
+                disabled={loading}
+              >
+                <Text style={[styles.buttonText, { color: '#FFF', ...typography.bodySemi }]}>
+                  {loading ? "Adding..." : "Add"}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -248,68 +305,109 @@ export default function ShoppingList() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
+  container: { flex: 1 },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    marginBottom: 16,
-    height: 44,
+    paddingHorizontal: 12,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    height: 48,
+    marginTop: 16,
   },
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1 },
   card: {
     flexDirection: 'row',
-    padding: 16,
-    borderRadius: 10,
-    marginBottom: 10,
+    padding: 12,
+    marginHorizontal: 16,
+    marginBottom: 12,
     alignItems: 'center',
-    borderBottomWidth: 1,
+    borderWidth: 1,
+    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
-  cardInfo: { flex: 1 },
-  itemName: { fontSize: 18, fontWeight: 'bold' },
-  itemSub: { fontSize: 14, marginTop: 4 },
-  cardActions: { flexDirection: 'row', alignItems: 'center' },
-  iconButton: { padding: 8 },
-  actionBtn: { 
-    padding: 8, 
-    borderRadius: 8, 
-    marginHorizontal: 4,
+  checkButton: {
+    width: 36,
+    height: 36,
+    borderWidth: 1.5,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    marginRight: 12,
   },
-  emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16 },
+  checkInner: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardInfo: { 
+    flex: 1,
+    justifyContent: 'center',
+  },
+  itemName: { fontSize: 16 },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  qtyBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginRight: 8,
+  },
+  itemSub: { fontSize: 11, fontWeight: '600' },
+  categoryLabel: { fontSize: 12, opacity: 0.6 },
+  deleteButton: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 100,
+  },
+  emptyText: { marginTop: 16, textAlign: 'center' },
   fab: {
     position: 'absolute',
-    right: 20,
-    bottom: 20,
+    right: 24,
+    bottom: 24,
     width: 56,
     height: 56,
-    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
+    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
-  modalContent: { width: '85%', padding: 20, borderRadius: 12 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 16 },
-  input: { borderWidth: 1, padding: 10, borderRadius: 8, marginBottom: 16 },
-  label: { fontSize: 14, marginBottom: 8 },
-  pickerContainer: { marginBottom: 20 },
+  modalContent: { width: '100%', padding: 24, elevation: 10 },
+  modalTitle: { marginBottom: 20, textAlign: 'center' },
+  input: { borderWidth: 1, padding: 12, marginBottom: 16 },
+  label: { marginBottom: 6, marginLeft: 4 },
+  pickerContainer: { marginBottom: 24 },
   catChip: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     borderWidth: 1,
     marginRight: 8,
-    marginVertical: 4,
   },
-  modalButtons: { flexDirection: 'row', justifyContent: 'space-around' },
+  modalButtons: { flexDirection: 'row', gap: 12 },
+  modalButton: {
+    flex: 1,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buttonText: { },
 });

@@ -2,25 +2,32 @@ import { Stack } from 'expo-router';
 import { useTheme } from '../../../lib/ThemeContext';
 
 export default function InventoryStackLayout() {
-  const { theme } = useTheme();
+  const { colors, isDark } = useTheme();
 
   return (
     <Stack screenOptions={{
       headerStyle: {
-        backgroundColor: theme.background,
+        backgroundColor: colors.background,
       },
-      headerTintColor: theme.text,
+      headerTitleStyle: {
+        fontWeight: '700',
+        fontSize: 18,
+        color: colors.text,
+      },
+      headerTintColor: colors.primary,
+      headerShadowVisible: false,
+      headerBackTitleVisible: false,
     }}>
       <Stack.Screen 
         name="index" 
         options={{ 
-          title: 'Inventory',
+          title: 'Categories',
         }} 
       />
       <Stack.Screen 
         name="[categoryId]" 
         options={{ 
-          title: 'Category Items',
+          title: 'Inventory',
         }} 
       />
     </Stack>

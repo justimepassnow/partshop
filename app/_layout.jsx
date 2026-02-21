@@ -4,6 +4,7 @@ import { View, ActivityIndicator, Text } from "react-native";
 import { Stack } from "expo-router";
 import { ThemeProvider } from '../lib/ThemeContext';
 import { ToastProvider } from '../lib/ToastContext';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 export default function RootLayout() {
   const [isDBReady, setIsDBReady] = useState(false);
@@ -54,12 +55,14 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider>
-      <ToastProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-        </Stack>
-      </ToastProvider>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <ToastProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" />
+          </Stack>
+        </ToastProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }

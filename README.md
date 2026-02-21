@@ -10,8 +10,9 @@ PartShop is a React Native application built with Expo that provides a centraliz
 - **Categorization:** Organize components into custom categories with visual thumbnails.
 - **Rich Item Details:** Track names, quantities, and persistent images for every part.
 - **PDF Datasheet Support:** Attach and open technical datasheets directly within the app.
-- **Offline Storage:** All data is persisted locally using SQLite for fast, reliable access without an internet connection.
-- **Modern UI:** Responsive 2-column grid layout with theme support.
+- **Shopping List:** Add items to a shopping list and move them to inventory with a single tap.
+- **Offline Storage:** All data is persisted locally using SQLite for fast, reliable access.
+- **Modern Design System:** A cohesive UI with consistent theming (color palettes, typography, spacing), smooth animations, and a clear visual hierarchy.
 
 ## Installation
 

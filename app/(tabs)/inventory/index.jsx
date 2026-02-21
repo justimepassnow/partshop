@@ -7,17 +7,18 @@ import {
   TouchableOpacity,
   Modal,
   TextInput,
-  Button,
   Alert,
   Platform,
   Image,
   Dimensions,
+  Animated,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCategories } from '../../../hooks/useCategories';
 import { useItems } from '../../../hooks/useItems';
 import { useTheme } from '../../../lib/ThemeContext';
 import { useToast } from '../../../lib/ToastContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
@@ -26,6 +27,25 @@ import * as ImagePicker from 'expo-image-picker';
 
 const { width } = Dimensions.get('window');
 const cardWidth = (width - 48) / 2;
+
+const FadeInView = (props) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: true,
+      delay: props.delay || 0,
+    }).start();
+  }, [fadeAnim]);
+
+  return (
+    <Animated.View style={{ ...props.style, opacity: fadeAnim }}>
+      {props.children}
+    </Animated.View>
+  );
+};
 
 export default function InventoryIndex() {
   const [categories, setCategories] = useState([]);
@@ -37,7 +57,8 @@ export default function InventoryIndex() {
   const [categoryToEdit, setCategoryToEdit] = useState(null);
   const { getCategories, addCategory, deleteCategory, searchCategories, updateCategory } = useCategories();
   const { searchItems } = useItems();
-  const { theme } = useTheme();
+  const { colors, spacing, radius, typography } = useTheme();
+  const insets = useSafeAreaInsets();
   const { showToast } = useToast();
   const router = useRouter();
 
@@ -205,75 +226,82 @@ export default function InventoryIndex() {
     }
   };
 
-  const renderItem = ({ item }) => {
+  const renderItem = ({ item, index }) => {
     if (item.type === 'item') {
       return (
-        <View style={[styles.gridItemCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <FadeInView delay={index * 50} style={[styles.gridItemCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: radius.lg }]}>
           <View style={styles.gridItemContent}>
             {item.image_uri ? (
-              <Image source={{ uri: item.image_uri }} style={styles.gridItemThumbnail} />
+              <Image source={{ uri: item.image_uri }} style={[styles.gridItemThumbnail, { borderRadius: radius.md }]} />
             ) : (
-              <View style={[styles.gridItemThumbnail, { backgroundColor: theme.border, justifyContent: 'center', alignItems: 'center' }]}>
-                <Ionicons name="cube-outline" size={30} color={theme.card} />
+              <View style={[styles.gridItemThumbnail, { backgroundColor: colors.surface, borderRadius: radius.md, justifyContent: 'center', alignItems: 'center' }]}>
+                <Ionicons name="cube-outline" size={30} color={colors.textSecondary} />
               </View>
             )}
-            <Text style={[styles.gridItemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
-            <Text style={[styles.gridCategoryLabel, { color: theme.primary }]} numberOfLines={1}>{item.category_name}</Text>
-            <Text style={[styles.gridItemQty, { color: theme.text }]}>Qty: {item.quantity}</Text>
+            <Text style={[styles.gridItemName, { color: colors.text, ...typography.bodySemi }]} numberOfLines={1}>{item.name}</Text>
+            <Text style={[styles.gridCategoryLabel, { color: colors.primary, ...typography.small }]} numberOfLines={1}>{item.category_name}</Text>
+            <Text style={[styles.gridItemQty, { color: colors.textSecondary, ...typography.small }]}>Qty: {item.quantity}</Text>
           </View>
           {item.datasheet_uri && (
             <TouchableOpacity 
               onPress={() => handleViewDatasheet(item.datasheet_uri)}
               style={styles.gridDatasheetIcon}
             >
-              <Ionicons name="document-text" size={16} color={theme.primary} />
+              <Ionicons name="document-text" size={16} color={colors.primary} />
             </TouchableOpacity>
           )}
-        </View>
+        </FadeInView>
       );
     }
 
     return (
-      <TouchableOpacity
-        style={[styles.categoryCard, { backgroundColor: theme.card }]}
-        onPress={() => router.push(`/inventory/${item.id}`)}
-      >
-        {item.image_uri ? (
-          <Image source={{ uri: item.image_uri }} style={styles.categoryCardImage} />
-        ) : (
-          <View style={[styles.categoryCardImage, { backgroundColor: theme.border, justifyContent: 'center', alignItems: 'center' }]}>
-            <Ionicons name="folder-outline" size={50} color={theme.card} />
+      <FadeInView delay={index * 50}>
+        <TouchableOpacity
+          style={[styles.categoryCard, { backgroundColor: colors.card, borderRadius: radius.xl }]}
+          onPress={() => router.push(`/inventory/${item.id}`)}
+        >
+          {item.image_uri ? (
+            <Image source={{ uri: item.image_uri }} style={styles.categoryCardImage} />
+          ) : (
+            <View style={[styles.categoryCardImage, { backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center' }]}>
+              <Ionicons name="folder-outline" size={50} color={colors.textSecondary} />
+            </View>
+          )}
+          <View style={styles.categoryCardOverlay}>
+            <Text style={[styles.categoryCardName, { ...typography.bodySemi }]} numberOfLines={1}>{item.name}</Text>
+            <Text style={[styles.categoryCountText, { ...typography.small }]}>{item.item_count || 0} items</Text>
           </View>
-        )}
-        <View style={styles.categoryCardOverlay}>
-          <Text style={styles.categoryCardName} numberOfLines={1}>{item.name}</Text>
-          <Text style={styles.categoryCountText}>{item.item_count || 0} items</Text>
-        </View>
-        {item.id !== 1 && !searchQuery.trim() && (
-          <View style={styles.categoryCardActions}>
-            <TouchableOpacity onPress={() => openEditModal(item)} style={styles.cardIconButton}>
-              <Ionicons name="pencil" size={16} color="#FFF" />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleDeleteCategory(item.id, item.name)} style={styles.cardIconButton}>
-              <Ionicons name="trash" size={16} color="#FFF" />
-            </TouchableOpacity>
-          </View>
-        )}
-      </TouchableOpacity>
+          {item.id !== 1 && !searchQuery.trim() && (
+            <View style={styles.categoryCardActions}>
+              <TouchableOpacity onPress={() => openEditModal(item)} style={[styles.cardIconButton, { borderRadius: radius.full }]}>
+                <Ionicons name="pencil" size={14} color="#FFF" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleDeleteCategory(item.id, item.name)} style={[styles.cardIconButton, { borderRadius: radius.full }]}>
+                <Ionicons name="trash" size={14} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+          )}
+        </TouchableOpacity>
+      </FadeInView>
     );
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={[styles.searchContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
-        <Ionicons name="search" size={20} color={theme.border} style={styles.searchIcon} />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg }]}>
+        <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
         <TextInput
-          style={[styles.searchInput, { color: theme.text }]}
+          style={[styles.searchInput, { color: colors.text, ...typography.body }]}
           placeholder="Search inventory..."
-          placeholderTextColor={theme.border}
+          placeholderTextColor={colors.textSecondary}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        )}
       </View>
 
       <FlatList
@@ -283,57 +311,73 @@ export default function InventoryIndex() {
         numColumns={2}
         key={searchQuery.trim() ? 'grid-search' : 'grid-categories'}
         columnWrapperStyle={styles.row}
+        contentContainerStyle={{ paddingBottom: 80 + insets.bottom }}
         ListEmptyComponent={() => (
-          <Text style={[styles.emptyText, { color: theme.text }]}>
-            {searchQuery.trim() ? 'No results found.' : 'No categories found.'}
-          </Text>
+          <View style={styles.emptyContainer}>
+            <Ionicons name="search-outline" size={64} color={colors.border} />
+            <Text style={[styles.emptyText, { color: colors.textSecondary, ...typography.body }]}>
+              {searchQuery.trim() ? 'No results found.' : 'No categories found.'}
+            </Text>
+          </View>
         )}
       />
 
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: theme.primary }]}
+        style={[styles.fab, { backgroundColor: colors.primary, borderRadius: radius.full, shadowColor: colors.primary, bottom: 24 }]}
         onPress={() => setModalVisible(true)}
       >
         <Ionicons name="add" size={30} color="#FFF" />
       </TouchableOpacity>
 
       <Modal
-        animationType="slide"
+        animationType="fade"
         transparent={true}
         visible={modalVisible}
         onRequestClose={resetModal}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card, borderRadius: radius.xl }]}>
+            <Text style={[styles.modalTitle, { color: colors.text, ...typography.h3 }]}>
               {categoryToEdit ? 'Edit Category' : 'Add Category'}
             </Text>
             
             <TouchableOpacity 
-              style={[styles.imagePicker, { borderColor: theme.border }]} 
+              style={[styles.imagePicker, { borderColor: colors.border, borderRadius: radius.lg }]} 
               onPress={handlePickImage}
             >
               {categoryImageUri ? (
                 <Image source={{ uri: categoryImageUri }} style={styles.previewImage} />
               ) : (
                 <View style={styles.imagePlaceholder}>
-                  <Ionicons name="camera-outline" size={40} color={theme.border} />
-                  <Text style={{ color: theme.border }}>Add Image</Text>
+                  <Ionicons name="camera-outline" size={40} color={colors.textSecondary} />
+                  <Text style={{ color: colors.textSecondary, ...typography.small }}>Add Image</Text>
                 </View>
               )}
             </TouchableOpacity>
 
             <TextInput
-              style={[styles.input, { color: theme.text, borderColor: theme.border }]}
+              style={[styles.input, { color: colors.text, borderColor: colors.border, borderRadius: radius.md, ...typography.body }]}
               placeholder="Category Name"
-              placeholderTextColor={theme.border}
+              placeholderTextColor={colors.textSecondary}
               value={newCategoryName}
               onChangeText={setNewCategoryName}
               autoFocus
             />
             <View style={styles.modalButtons}>
-              <Button title="Cancel" onPress={resetModal} color={theme.danger} />
-              <Button title={categoryToEdit ? "Update" : "Add"} onPress={handleSaveCategory} color={theme.primary} />
+              <TouchableOpacity 
+                style={[styles.modalButton, { backgroundColor: colors.surface, borderRadius: radius.md }]} 
+                onPress={resetModal}
+              >
+                <Text style={[styles.buttonText, { color: colors.textSecondary, ...typography.bodySemi }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalButton, { backgroundColor: colors.primary, borderRadius: radius.md }]} 
+                onPress={handleSaveCategory}
+              >
+                <Text style={[styles.buttonText, { color: '#FFF', ...typography.bodySemi }]}>
+                  {categoryToEdit ? "Update" : "Add"}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -351,11 +395,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     marginHorizontal: 8,
     marginBottom: 16,
-    height: 44,
+    height: 48,
+    marginTop: 8,
   },
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1 },
@@ -366,13 +410,11 @@ const styles = StyleSheet.create({
     width: cardWidth,
     height: cardWidth,
     margin: 8,
-    borderRadius: 12,
     overflow: 'hidden',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 8,
   },
   categoryCardImage: {
     width: '100%',
@@ -383,115 +425,115 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
     padding: 8,
+    backdropFilter: 'blur(10px)',
   },
   categoryCardName: {
     color: '#FFF',
-    fontSize: 16,
-    fontWeight: 'bold',
     textAlign: 'center',
   },
   categoryCountText: {
-    color: '#EEE',
-    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
     textAlign: 'center',
   },
   categoryCardActions: {
     position: 'absolute',
-    top: 5,
-    right: 5,
+    top: 8,
+    right: 8,
     flexDirection: 'row',
   },
   cardIconButton: {
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 15,
+    backgroundColor: 'rgba(0,0,0,0.4)',
     width: 28,
     height: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 4,
+    marginLeft: 6,
   },
   gridItemCard: {
     width: cardWidth,
     margin: 8,
-    padding: 10,
-    borderRadius: 12,
+    padding: 12,
     borderWidth: 1,
     alignItems: 'center',
+    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
   gridItemContent: {
     alignItems: 'center',
   },
   gridItemThumbnail: {
-    width: 70,
-    height: 70,
-    borderRadius: 8,
+    width: 80,
+    height: 80,
     marginBottom: 8,
   },
   gridItemName: {
-    fontSize: 14,
-    fontWeight: 'bold',
     textAlign: 'center',
   },
   gridCategoryLabel: {
-    fontSize: 11,
     marginVertical: 2,
   },
   gridItemQty: {
-    fontSize: 12,
   },
   gridDatasheetIcon: {
     position: 'absolute',
-    top: 5,
-    right: 5,
+    top: 8,
+    right: 8,
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 100,
   },
   emptyText: {
+    marginTop: 16,
     textAlign: 'center',
-    marginTop: 50,
-    fontSize: 16,
   },
   fab: {
     position: 'absolute',
-    right: 20,
-    bottom: 20,
+    right: 24,
+    bottom: 24,
     width: 56,
     height: 56,
-    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
-    width: '80%',
-    padding: 20,
-    borderRadius: 12,
-    elevation: 5,
+    width: '100%',
+    padding: 24,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
+    marginBottom: 20,
+    textAlign: 'center',
   },
   imagePicker: {
     width: '100%',
-    height: 150,
-    borderWidth: 1,
-    borderRadius: 12,
+    height: 160,
+    borderWidth: 2,
     borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
     overflow: 'hidden',
   },
   previewImage: {
@@ -503,12 +545,19 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 20,
+    padding: 12,
+    marginBottom: 24,
   },
   modalButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buttonText: {
   },
 });
