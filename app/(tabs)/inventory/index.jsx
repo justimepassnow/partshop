@@ -64,7 +64,7 @@ export default function InventoryIndex() {
 
   const fetchCategories = async () => {
     try {
-      const data = await getCategories();
+      const data = await getCategories(); // Fetch all categories
       setCategories(data);
     } catch (error) {
       console.error(error);
@@ -123,7 +123,7 @@ export default function InventoryIndex() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaType.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
@@ -467,8 +467,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   gridItemThumbnail: {
-    width: 80,
-    height: 80,
+    width: 60,
+    height: 60,
     marginBottom: 8,
   },
   gridItemName: {

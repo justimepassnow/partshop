@@ -7,12 +7,15 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { useTheme } from '../../lib/ThemeContext';
 import { useToast } from '../../lib/ToastContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { importFromCSV, exportToCSV } from '../../lib/importUtils';
+import { deleteAllInventoryData } from '../../lib/database';
 
 export default function SettingsScreen() {
   const { colors, spacing, radius, typography, userTheme, setThemePreference } = useTheme();
@@ -20,6 +23,9 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const [isImporting, setIsImporting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleCSVImport = async () => {
     setIsImporting(true);
@@ -52,6 +58,29 @@ export default function SettingsScreen() {
       Alert.alert('Error', 'An unexpected error occurred during export.');
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handleDeleteAllData = async () => {
+    if (confirmText.toLowerCase() !== 'confirm') {
+      Alert.alert('Invalid Confirmation', 'Please type "confirm" to proceed.');
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const result = await deleteAllInventoryData();
+      if (result.success) {
+        showToast(result.message, 'success');
+        setIsDeleteModalVisible(false);
+        setConfirmText('');
+      } else {
+        Alert.alert('Error', result.message);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'An unexpected error occurred.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -93,7 +122,11 @@ export default function SettingsScreen() {
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={{ padding: spacing.md, paddingTop: insets.top + spacing.md }}
+      contentContainerStyle={{ 
+        padding: spacing.md, 
+        paddingTop: insets.top + spacing.md,
+        paddingBottom: insets.bottom + spacing.xl // Ensure space above tab bar and safe area
+      }}
     >
       <Text style={[styles.sectionTitle, { color: colors.text, ...typography.h2 }]}>Settings</Text>
 
@@ -155,11 +188,85 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </View>
 
+      <View style={[styles.section, { backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.md, marginTop: spacing.md }]}>
+        <Text style={[styles.label, { color: colors.danger || '#FF3B30', ...typography.bodySemi, marginBottom: spacing.sm }]}>
+          Danger Zone
+        </Text>
+        <TouchableOpacity
+          style={[styles.importButton, { backgroundColor: colors.surface, borderRadius: radius.md }]}
+          onPress={() => setIsDeleteModalVisible(true)}
+        >
+          <Ionicons name="trash-outline" size={24} color={colors.danger || '#FF3B30'} />
+          <View style={styles.importInfo}>
+            <Text style={[styles.importText, { color: colors.danger || '#FF3B30', ...typography.bodySemi }]}>
+              Delete Entire Inventory
+            </Text>
+            <Text style={[styles.importSubtext, { color: colors.textSecondary, ...typography.small }]}>
+              Permanently remove all categories, items and shopping list
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.border} />
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.footer}>
         <Text style={[styles.versionText, { color: colors.textSecondary, ...typography.small }]}>
           PartShop v2.0.1
         </Text>
       </View>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={isDeleteModalVisible}
+        onRequestClose={() => setIsDeleteModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card, borderRadius: radius.xl }]}>
+            <Ionicons name="warning-outline" size={48} color={colors.danger || '#FF3B30'} style={{ alignSelf: 'center', marginBottom: 16 }} />
+            <Text style={[styles.modalTitle, { color: colors.text, ...typography.h3 }]}>
+              Are you absolutely sure?
+            </Text>
+            <Text style={[styles.modalDescription, { color: colors.textSecondary, ...typography.body, marginBottom: 20, textAlign: 'center' }]}>
+              This action cannot be undone. This will permanently delete all items, categories, and your shopping list.
+            </Text>
+            <Text style={[styles.modalLabel, { color: colors.text, ...typography.bodySemi, marginBottom: 8 }]}>
+              Please type <Text style={{ fontWeight: 'bold' }}>confirm</Text> to proceed:
+            </Text>
+            <TextInput
+              style={[styles.input, { color: colors.text, borderColor: colors.border, borderRadius: radius.md, ...typography.body }]}
+              placeholder="Type 'confirm' here"
+              placeholderTextColor={colors.textSecondary}
+              value={confirmText}
+              onChangeText={setConfirmText}
+              autoCapitalize="none"
+              autoFocus
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, { backgroundColor: colors.surface, borderRadius: radius.md }]} 
+                onPress={() => {
+                  setIsDeleteModalVisible(false);
+                  setConfirmText('');
+                }}
+              >
+                <Text style={[styles.buttonText, { color: colors.textSecondary, ...typography.bodySemi }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalButton, { backgroundColor: colors.danger || '#FF3B30', borderRadius: radius.md }]} 
+                onPress={handleDeleteAllData}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={[styles.buttonText, { color: '#FFF', ...typography.bodySemi }]}>Delete All</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -214,5 +321,46 @@ const styles = StyleSheet.create({
   },
   versionText: {
     opacity: 0.5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    padding: 24,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+  },
+  modalTitle: {
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalDescription: {
+  },
+  modalLabel: {
+  },
+  input: {
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buttonText: {
   },
 });

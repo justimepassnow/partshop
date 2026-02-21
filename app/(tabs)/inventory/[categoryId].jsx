@@ -151,7 +151,7 @@ export default function CategoryItems() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaType.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.5,
@@ -531,8 +531,8 @@ const styles = StyleSheet.create({
   itemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   itemInfoSection: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   itemThumbnail: {
-    width: 48,
-    height: 48,
+    width: 40,
+    height: 40,
     marginRight: 12,
   },
   itemNameContainer: { flex: 1 },
@@ -622,4 +622,3 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 });
-
