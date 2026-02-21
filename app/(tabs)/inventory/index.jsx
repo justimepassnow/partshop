@@ -123,25 +123,29 @@ export default function InventoryIndex() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaType.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
       });
 
-      if (!result.canceled) {
+      if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
         const targetDir = `${FileSystem.documentDirectory}images/`;
+        
+        // Ensure directory exists
         const dirInfo = await FileSystem.getInfoAsync(targetDir);
         if (!dirInfo.exists) {
           await FileSystem.makeDirectoryAsync(targetDir, { intermediates: true });
         }
+        
         const newUri = `${targetDir}${Date.now()}.jpg`;
         await FileSystem.copyAsync({ from: asset.uri, to: newUri });
         setCategoryImageUri(newUri);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to pick image');
+      Alert.alert('Error', 'Failed to pick image: ' + error.message);
+      console.error('Pick Image Error:', error);
     }
   };
 

@@ -1,7 +1,7 @@
 {
   "expo": {
     "scheme": "partshop",
-    "name": "partshop",
+    "name": "PartShop",
     "slug": "partshop",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -18,6 +18,12 @@
     },
     "android": {
       "package": "com.ak.partshop",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -29,7 +35,13 @@
     },
     "plugins": [
       "expo-router",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them with your friends."
+        }
+      ]
     ],
     "extra": {
       "router": {},
