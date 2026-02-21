@@ -211,7 +211,7 @@ export default function SettingsScreen() {
 
       <View style={styles.footer}>
         <Text style={[styles.versionText, { color: colors.textSecondary, ...typography.small }]}>
-          PartShop v2.0.1
+          PartShop v1.0.0
         </Text>
       </View>
 
