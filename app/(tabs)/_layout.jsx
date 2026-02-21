@@ -14,7 +14,7 @@ export default function TabsLayout() {
     <Tabs screenOptions={{ 
       headerShown: false,
       tabBarStyle: {
-        backgroundColor: colors.background,
+        backgroundColor: colors.surface,
         borderTopColor: colors.border,
         height: tabHeight,
         paddingBottom: insets.bottom + (Platform.OS === 'ios' ? 0 : 8),
@@ -24,7 +24,7 @@ export default function TabsLayout() {
         shadowOpacity: 0,
       },
       headerStyle: {
-        backgroundColor: colors.background,
+        backgroundColor: colors.surface,
         elevation: 0,
         shadowOpacity: 0,
         borderBottomWidth: 1,
@@ -59,6 +59,16 @@ export default function TabsLayout() {
           headerShown: true,
           tabBarIcon: ({ focused, color }) => (
             <Ionicons name={focused ? 'cart' : 'cart-outline'} size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          headerShown: false,
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons name={focused ? 'settings' : 'settings-outline'} size={24} color={color} />
           ),
         }}
       />

@@ -228,11 +228,12 @@ export default function InventoryIndex() {
 
   const renderItem = ({ item, index }) => {
     if (item.type === 'item') {
+      const itemDisplayImage = item.image_uri || item.category_image_uri;
       return (
         <FadeInView delay={index * 50} style={[styles.gridItemCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: radius.lg }]}>
           <View style={styles.gridItemContent}>
-            {item.image_uri ? (
-              <Image source={{ uri: item.image_uri }} style={[styles.gridItemThumbnail, { borderRadius: radius.md }]} />
+            {itemDisplayImage ? (
+              <Image source={{ uri: itemDisplayImage }} style={[styles.gridItemThumbnail, { borderRadius: radius.md }]} />
             ) : (
               <View style={[styles.gridItemThumbnail, { backgroundColor: colors.surface, borderRadius: radius.md, justifyContent: 'center', alignItems: 'center' }]}>
                 <Ionicons name="cube-outline" size={30} color={colors.textSecondary} />
@@ -288,7 +289,7 @@ export default function InventoryIndex() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg }]}>
+      <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: radius.lg }]}>
         <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
         <TextInput
           style={[styles.searchInput, { color: colors.text, ...typography.body }]}

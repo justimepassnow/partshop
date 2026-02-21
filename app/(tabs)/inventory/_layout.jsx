@@ -7,7 +7,7 @@ export default function InventoryStackLayout() {
   return (
     <Stack screenOptions={{
       headerStyle: {
-        backgroundColor: colors.background,
+        backgroundColor: colors.surface,
       },
       headerTitleStyle: {
         fontWeight: '700',

@@ -281,22 +281,24 @@ export default function CategoryItems() {
     setMoveModalVisible(true);
   };
 
-  const renderItem = ({ item, index }) => (
-    <FadeInView delay={index * 50} style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: radius.lg }]}>
-      <View style={styles.itemHeader}>
-        <View style={styles.itemInfoSection}>
-          {item.image_uri ? (
-            <Image source={{ uri: item.image_uri }} style={[styles.itemThumbnail, { borderRadius: radius.md }]} />
-          ) : (
-            <View style={[styles.itemThumbnail, { backgroundColor: colors.surface, borderRadius: radius.md, justifyContent: 'center', alignItems: 'center' }]}>
-              <Ionicons name="cube-outline" size={24} color={colors.textSecondary} />
+  const renderItem = ({ item, index }) => {
+    const itemDisplayImage = item.image_uri || item.category_image_uri;
+    return (
+      <FadeInView delay={index * 50} style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: radius.lg }]}>
+        <View style={styles.itemHeader}>
+          <View style={styles.itemInfoSection}>
+            {itemDisplayImage ? (
+              <Image source={{ uri: itemDisplayImage }} style={[styles.itemThumbnail, { borderRadius: radius.md }]} />
+            ) : (
+              <View style={[styles.itemThumbnail, { backgroundColor: colors.surface, borderRadius: radius.md, justifyContent: 'center', alignItems: 'center' }]}>
+                <Ionicons name="cube-outline" size={24} color={colors.textSecondary} />
+              </View>
+            )}
+            <View style={styles.itemNameContainer}>
+              <Text style={[styles.itemName, { color: colors.text, ...typography.bodySemi }]}>{item.name}</Text>
+              <Text style={[styles.itemQty, { color: colors.textSecondary, ...typography.small }]}>Quantity: {item.quantity}</Text>
             </View>
-          )}
-          <View style={styles.itemNameContainer}>
-            <Text style={[styles.itemName, { color: colors.text, ...typography.bodySemi }]}>{item.name}</Text>
-            <Text style={[styles.itemQty, { color: colors.textSecondary, ...typography.small }]}>Quantity: {item.quantity}</Text>
           </View>
-        </View>
         <View style={styles.itemActions}>
           <TouchableOpacity onPress={() => openMoveModal(item)} style={styles.iconButton}>
             <Ionicons name="arrow-forward-outline" size={20} color={colors.primary} />
@@ -319,11 +321,12 @@ export default function CategoryItems() {
         </TouchableOpacity>
       )}
     </FadeInView>
-  );
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg }]}>
+      <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: radius.lg }]}>
         <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
         <TextInput
           style={[styles.searchInput, { color: colors.text, ...typography.body }]}

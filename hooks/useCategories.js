@@ -17,7 +17,6 @@ export function useCategories() {
 
   const updateCategory = async (id, name, imageUri = null) => {
     try {
-      // Get the current category to check for existing image_uri
       const current = await getCategoryById(id);
       
       await db.runAsync(
@@ -25,7 +24,6 @@ export function useCategories() {
         [name, imageUri, id]
       );
 
-      // If the image was updated (new uri provided and it's different), cleanup the old one
       if (imageUri && current && current.image_uri && current.image_uri !== imageUri) {
         await safeDeleteFile(current.image_uri);
       }
@@ -53,27 +51,31 @@ export function useCategories() {
 
   const deleteCategory = async (id) => {
     try {
-      // Don't delete Uncategorized
       if (id === 1) return;
 
-      // Get the category first to get the image_uri
       const category = await getCategoryById(id);
 
       await db.withTransactionAsync(async () => {
-        // Move items to Uncategorized (id = 1)
+        // 1. Move inventory items to Uncategorized (id = 1)
         await db.runAsync(
           `UPDATE items SET category_id = 1 WHERE category_id = ?;`,
           [id]
         );
 
-        // Delete category
+        // 2. Move shopping list items to Uncategorized (id = 1)
+        // This is crucial to avoid FOREIGN KEY constraint failure
+        await db.runAsync(
+          `UPDATE shopping_list SET target_category_id = 1 WHERE target_category_id = ?;`,
+          [id]
+        );
+
+        // 3. Delete category
         await db.runAsync(
           `DELETE FROM categories WHERE id = ? AND id != 1;`,
           [id]
         );
       });
 
-      // Cleanup image after successful transaction
       if (category && category.image_uri) {
         await safeDeleteFile(category.image_uri);
       }
@@ -82,29 +84,36 @@ export function useCategories() {
       throw error;
     }
   };
-    
-        const getCategoryById = async (id) => {
-          try {
-            const category = await db.getFirstAsync(`SELECT * FROM categories WHERE id = ?;`, [id]);
-            return category;
-          } catch (error) {
-            console.error('Error getting category by id:', error);
-            throw error;
-          }
-        };
-      
-        const searchCategories = async (query) => {
-          try {
-            const allRows = await db.getAllAsync(
-              `SELECT * FROM categories WHERE name LIKE ? ORDER BY (id = 1) ASC, name ASC;`,
-              [`%${query}%`]
-            );
-            return allRows;
-          } catch (error) {
-            console.error('Error searching categories:', error);
-            throw error;
-          }
-        };
-      
-          return { addCategory, getCategories, deleteCategory, getCategoryById, searchCategories, updateCategory };
-        }
+
+  const getCategoryById = async (id) => {
+    try {
+      const category = await db.getFirstAsync(`SELECT * FROM categories WHERE id = ?;`, [id]);
+      return category;
+    } catch (error) {
+      console.error('Error getting category by id:', error);
+      throw error;
+    }
+  };
+
+  const searchCategories = async (query) => {
+    try {
+      const allRows = await db.getAllAsync(
+        `SELECT * FROM categories WHERE name LIKE ? ORDER BY (id = 1) ASC, name ASC;`,
+        [`%${query}%`]
+      );
+      return allRows;
+    } catch (error) {
+      console.error('Error searching categories:', error);
+      throw error;
+    }
+  };
+
+  return { 
+    addCategory, 
+    getCategories, 
+    deleteCategory, 
+    getCategoryById, 
+    searchCategories, 
+    updateCategory 
+  };
+}

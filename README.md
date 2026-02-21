@@ -57,6 +57,14 @@ PartShop is a React Native application built with Expo that provides a centraliz
 ### Global Search
 Use the search bar at the top of the main screen to find both categories and items instantly. Results are debounced for performance.
 
+### Bulk Data Import/Export
+You can efficiently manage your inventory by importing data from a CSV file or exporting your current list.
+1. Navigate to the **Settings** tab.
+2. Under **Data Management**, tap **Import from CSV** to upload a file.
+   - The CSV should have headers: `category,name,quantity`.
+   - Missing categories will be created automatically.
+3. Tap **Export to CSV** to share or save your current inventory as a spreadsheet.
+
 ## Contributing
 Contributions are welcome! Please follow these steps:
 1. Fork the Project.

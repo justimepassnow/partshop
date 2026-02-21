@@ -19,7 +19,10 @@ export function useItems() {
   const getItemsByCategory = async (categoryId) => {
     try {
       const allRows = await db.getAllAsync(
-        `SELECT * FROM items WHERE category_id = ?;`,
+        `SELECT i.*, c.image_uri as category_image_uri 
+         FROM items i 
+         JOIN categories c ON i.category_id = c.id 
+         WHERE i.category_id = ?;`,
         [categoryId]
       );
       return allRows;
@@ -95,7 +98,7 @@ export function useItems() {
   const searchItems = async (query, categoryId = null) => {
     try {
       let queryStr = `
-        SELECT i.*, c.name as category_name 
+        SELECT i.*, c.name as category_name, c.image_uri as category_image_uri 
         FROM items i 
         JOIN categories c ON i.category_id = c.id
         WHERE (i.name LIKE ? OR c.name LIKE ?)

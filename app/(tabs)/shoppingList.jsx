@@ -181,7 +181,7 @@ export default function ShoppingList() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg }]}>
+      <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: radius.lg }]}>
         <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
         <TextInput
           style={[styles.searchInput, { color: colors.text, ...typography.body }]}

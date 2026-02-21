@@ -1,0 +1,51 @@
+category,name,quantity
+Resistors,100R 1/4W,50
+Resistors,220R 1/4W,50
+Resistors,330R 1/4W,50
+Resistors,1k 1/4W,100
+Resistors,2.2k 1/4W,25
+Resistors,4.7k 1/4W,25
+Resistors,10k 1/4W,100
+Resistors,22k 1/4W,20
+Resistors,47k 1/4W,20
+Resistors,100k 1/4W,50
+Capacitors,10pF Ceramic,30
+Capacitors,100pF Ceramic,30
+Capacitors,1nF Ceramic,40
+Capacitors,10nF Ceramic,40
+Capacitors,100nF Ceramic,100
+Capacitors,1uF Electrolytic,20
+Capacitors,4.7uF Electrolytic,20
+Capacitors,10uF Electrolytic,50
+Capacitors,47uF Electrolytic,15
+Capacitors,100uF Electrolytic,25
+ICs,ATmega328P-PU,5
+ICs,NE555 Timer,10
+ICs,LM358 Op-Amp,12
+ICs,74HC595 Shift Register,8
+ICs,L293D Motor Driver,4
+ICs,ESP32-WROOM-32,3
+ICs,MCP2515 CAN Controller,2
+ICs,ADS1115 ADC,2
+ICs,DS3231 RTC,3
+ICs,PCA9685 PWM Driver,2
+LEDs,Red 5mm,100
+LEDs,Green 5mm,100
+LEDs,Blue 5mm,50
+LEDs,Yellow 5mm,50
+LEDs,White 5mm,50
+LEDs,RGB Common Cathode,20
+LEDs,Infrared 940nm,15
+LEDs,UV 395nm,10
+LEDs,Orange 3mm,30
+LEDs,Pink 3mm,10
+Connectors,Header Male 40-pin,20
+Connectors,Header Female 40-pin,20
+Connectors,JST-XH 2-pin,15
+Connectors,JST-XH 3-pin,15
+Connectors,USB-C Female Port,10
+Connectors,DC Power Jack,8
+Connectors,Screw Terminal 2-pin,25
+Connectors,Screw Terminal 3-pin,20
+Connectors,DB9 Male,5
+Connectors,Banana Plug Red,10
