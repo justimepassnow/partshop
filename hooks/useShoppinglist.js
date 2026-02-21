@@ -58,14 +58,27 @@ export function useShoppingList() {
   const purchaseShoppingItem = async (item) => {
     try {
       await db.withTransactionAsync(async () => {
-        // 1. Upsert into items table: if name/category exists, add to quantity
-        await db.runAsync(
-          `INSERT INTO items (category_id, name, quantity) 
-           VALUES (?, ?, ?)
-           ON CONFLICT(category_id, name) DO UPDATE SET quantity = quantity + excluded.quantity;`,
-          [item.target_category_id || 1, item.name, item.target_quantity]
+        // 1. Check if item already exists in inventory (by category and name)
+        const targetCatId = item.target_category_id || 1;
+        const existing = await db.getFirstAsync(
+          'SELECT id, quantity FROM items WHERE category_id = ? AND name = ?',
+          [targetCatId, item.name]
         );
-        // 2. Remove from shopping list
+
+        if (existing) {
+          // 2a. Update quantity if it exists
+          await db.runAsync(
+            'UPDATE items SET quantity = quantity + ? WHERE id = ?',
+            [item.target_quantity, existing.id]
+          );
+        } else {
+          // 2b. Insert as new item if it doesn't exist
+          await db.runAsync(
+            'INSERT INTO items (category_id, name, quantity) VALUES (?, ?, ?)',
+            [targetCatId, item.name, item.target_quantity]
+          );
+        }
+        // 3. Remove from shopping list
         await db.runAsync(`DELETE FROM shopping_list WHERE id = ?;`, [item.id]);
       });
     } catch (error) {
